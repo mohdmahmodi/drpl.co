@@ -3,205 +3,133 @@
  * Handles system notifications for incoming files, messages, and peer events
  */
 
-// Create a global namespace for notifications to avoid conflicts
-window.NotificationManager = (function() {
-  /**
-   * Check if text is a URL
-   * @param {string} text - Text to check
-   * @returns {boolean} - True if text is a URL
-   */
-  const isURL = text => /^((https?:\/\/|www)[^\s]+)/g.test(text.toLowerCase());
-  
-  /**
-   * NotificationHandler - Manages browser notifications
-   */
+window.NotificationManager = (function () {
+  const isURL = (text) =>
+    /^((https?:\/\/|www)[^\s]+)/g.test(text.toLowerCase());
+
   class NotificationHandler {
-    /**
-     * Initialize the notification system
-     */
     constructor() {
-      // Initialize property for tracking permission status
       this.hasPermission = false;
-      
-      // Check if the browser supports notifications
-      if (!('Notification' in window)) {
-        console.log('This browser does not support desktop notifications');
+      if (!("Notification" in window)) {
+        console.log("This browser does not support desktop notifications");
         return;
       }
-      
-      // Initialize notification permissions
       this.checkPermission();
-      
-      // Setup notification event listeners
       this._setupEventListeners();
     }
-    
-    /**
-     * Set up event listeners for the notification triggers
-     * @private
-     */
+
     _setupEventListeners() {
-      Events.on('text-received', e => this.textNotification(e.detail));
-      Events.on('file-received', e => this.fileNotification(e.detail));
-      Events.on('peer-joined', e => this.peerJoinedNotification(e.detail));
-      Events.on('peer-left', e => this.peerLeftNotification(e.detail));
+      Events.on("text-received", (e) => this.textNotification(e.detail));
+      Events.on("file-received", (e) => this.fileNotification(e.detail));
+      Events.on("peer-joined", (e) => this.peerJoinedNotification(e.detail));
+      Events.on("peer-left", (e) => this.peerLeftNotification(e.detail));
     }
-    
-    /**
-     * Check current notification permission status
-     */
+
     checkPermission() {
-      if (Notification.permission === 'granted') {
+      if (Notification.permission === "granted") {
         this.hasPermission = true;
-      } else if (Notification.permission !== 'denied') {
-        // We need to ask for permission
+      } else if (Notification.permission !== "denied") {
         this.requestPermission();
       }
     }
-    
-    /**
-     * Request notification permission from the user
-     * @returns {Promise} - Resolves when permission request is handled
-     */
+
     requestPermission() {
       return Notification.requestPermission()
-        .then(permission => {
-          if (permission === 'granted') {
+        .then((permission) => {
+          if (permission === "granted") {
             this.hasPermission = true;
-            this.notify('drpl.co', 'Notifications enabled');
+            this.notify("drpl.co", "Notifications enabled");
           }
         })
-        .catch(error => {
-          console.error('Error requesting notification permission:', error);
-        });
+        .catch((err) =>
+          console.error("Error requesting notification permission:", err),
+        );
     }
-    
+
     /**
-     * Display a system notification
-     * @param {string} title - Notification title
-     * @param {string} body - Notification content
-     * @param {Object} data - Additional notification data including actions
-     * @returns {Notification|null} - Notification object if created
+     * Display a system notification.
+     * FIX: Removed redundant visibility check — callers are responsible for that guard.
      */
     notify(title, body, data = {}) {
-      // Check for permission and visibility
       if (!this.hasPermission) return null;
-      if (document.visibilityState === 'visible') return null;
-      
       try {
-        // Create and configure the notification
         const notification = new Notification(title, {
-          body: body,
-          icon: 'favicon.png',
-          data: data
+          body,
+          icon: "favicon.png",
+          data,
         });
-        
-        // Set up click handler
         notification.onclick = () => {
           window.focus();
           notification.close();
-          
-          // Execute action if provided
-          if (data.action && typeof data.action === 'function') {
-            data.action();
-          }
+          if (data.action && typeof data.action === "function") data.action();
         };
-        
-        // Auto-close after 5 seconds
         setTimeout(() => notification.close(), 5000);
-        
         return notification;
-      } catch (error) {
-        console.error('Error creating notification:', error);
+      } catch (err) {
+        console.error("Error creating notification:", err);
         return null;
       }
     }
-    
+
     /**
-     * Create notification for text messages
-     * @param {Object} data - Text message data
+     * FIX: Single visibility guard per notification method.
+     * Removed the duplicate check that was also inside notify().
      */
     textNotification(data) {
-      if (document.visibilityState === 'visible') return;
-      
+      if (document.visibilityState === "visible") return;
       const text = data.text;
-      
-      // Special handling for links
       if (isURL(text)) {
-        this.notify('New Link Received', text, {
-          action: () => window.open(text.startsWith('http') ? text : `http://${text}`, '_blank')
+        this.notify("New Link Received", text, {
+          action: () =>
+            window.open(
+              text.startsWith("http") ? text : `http://${text}`,
+              "_blank",
+              "noopener,noreferrer",
+            ),
         });
       } else {
-        // Truncate long messages for the notification
-        const truncatedText = text.substring(0, 50) + (text.length > 50 ? '...' : '');
-        
-        this.notify('New Message', truncatedText, {
+        const truncated =
+          text.substring(0, 50) + (text.length > 50 ? "..." : "");
+        this.notify("New Message", truncated, {
           action: () => {
-            // Open the message in the receive dialog when clicked
             if (window.drplUI && window.drplUI.dialogs.receiveText) {
               window.drplUI.dialogs.receiveText.showText(text, data.sender);
             }
-          }
+          },
         });
       }
     }
-    
-    /**
-     * Create notification for received files
-     * @param {Object} file - File data
-     */
+
     fileNotification(file) {
-      if (document.visibilityState === 'visible') return;
-      
-      this.notify('File Received', file.name, {
+      if (document.visibilityState === "visible") return;
+      this.notify("File Received", file.name, {
         action: () => {
-          // Show the receive dialog when clicked
           if (window.drplUI && window.drplUI.dialogs.receive) {
             window.drplUI.dialogs.receive.show();
           }
-        }
+        },
       });
     }
-    
-    /**
-     * Create notification when a new peer joins
-     * @param {Object} peer - Peer information
-     */
+
     peerJoinedNotification(peer) {
-      if (document.visibilityState === 'visible') return;
-      
-      this.notify('New Device Available', 
-        `${peer.name.displayName} (${peer.name.deviceName}) joined the network`, {
-          action: () => window.focus()
-        }
+      if (document.visibilityState === "visible") return;
+      this.notify(
+        "New Device Available",
+        `${peer.name.displayName} (${peer.name.deviceName}) joined the network`,
+        { action: () => window.focus() },
       );
     }
-    
-    /**
-     * Handle peer departure events
-     * @param {string} peerId - ID of the departing peer
-     */
-    peerLeftNotification(peerId) {
-      // We don't need to notify on peer departure
-      // This method is kept to maintain event handler structure
+
+    peerLeftNotification(_peerId) {
+      // Intentionally no notification on peer departure
     }
   }
-  
-  // Return the initialization function for external use
+
   return {
-    /**
-     * Initialize the notification handler
-     * @returns {NotificationHandler} - New notification handler instance
-     */
-    init: function() {
-      return new NotificationHandler();
-    }
+    init: () => new NotificationHandler(),
   };
 })();
 
-/**
- * Initialize when the DOM is fully loaded
- */
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('Notifications module loaded');
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("Notifications module loaded");
 });

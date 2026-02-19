@@ -1,455 +1,442 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta charset="utf-8" />
     <title>Drpl.co - Instant File Sharing Between Devices</title>
-    <link rel="icon" type="image/png" href="images/favicon.png?v=2">
+    <link rel="icon" type="image/png" href="images/favicon.png?v=2" />
 
-    <!-- Primary Meta Tags - Enhanced for better SEO -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#121212">
-    <meta name="color-scheme" content="dark light">
-    <meta name="description" content="Share files easily between any devices on the same WiFi. No apps or accounts needed. Works with Windows, Mac, iOS, Android. AirDrop for everyone.">
-    <meta name="keywords" content="airdrop alternative, snapdrop alternative, wifi file sharing, local file transfer">
-    <meta name="author" content="Mohd Mahmodi">
-    
-    <!-- Additional SEO tags -->
-    <meta name="robots" content="index, follow">
-    <meta name="application-name" content="Drpl.co">
-    <meta name="apple-mobile-web-app-title" content="Drpl.co">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <meta name="theme-color" content="#121212" />
+    <meta name="color-scheme" content="dark light" />
+    <meta
+      name="description"
+      content="Share files easily between any devices on the same WiFi. No apps or accounts needed. Works with Windows, Mac, iOS, Android. AirDrop for everyone."
+    />
+    <meta
+      name="keywords"
+      content="airdrop alternative, snapdrop alternative, wifi file sharing, local file transfer"
+    />
+    <meta name="author" content="Mohd Mahmodi" />
+    <meta name="robots" content="index, follow" />
+    <meta name="application-name" content="Drpl.co" />
+    <meta name="apple-mobile-web-app-title" content="Drpl.co" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
 
-    <!-- Open Graph / Facebook - Enhanced -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://drpl.co">
-    <meta property="og:title" content="Drpl.co - Instant File Sharing Between Devices">
-    <meta property="og:description" content="Transfer files between any devices on your local network. No apps, no accounts, no size limits. Works on all platforms with complete privacy.">
-    <meta property="og:image" content="https://drpl.co/images/image.png">
-    <meta property="og:site_name" content="Drpl.co">
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://drpl.co" />
+    <meta
+      property="og:title"
+      content="Drpl.co - Instant File Sharing Between Devices"
+    />
+    <meta
+      property="og:description"
+      content="Transfer files between any devices on your local network. No apps, no accounts, no size limits."
+    />
+    <meta property="og:image" content="https://drpl.co/images/image.png" />
+    <meta property="og:site_name" content="Drpl.co" />
 
-    <!-- Twitter - Enhanced -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://drpl.co">
-    <meta property="twitter:title" content="Drpl.co - Instant File Sharing Between Devices">
-    <meta property="twitter:description" content="Transfer files between any devices on your local network. No apps, no accounts, no size limits. Works on all platforms with complete privacy.">
-    <meta property="twitter:image" content="https://drpl.co/images/image.png">
-    
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://drpl.co">
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://drpl.co" />
+    <meta
+      property="twitter:title"
+      content="Drpl.co - Instant File Sharing Between Devices"
+    />
+    <meta
+      property="twitter:description"
+      content="Transfer files between any devices on your local network."
+    />
+    <meta property="twitter:image" content="https://drpl.co/images/image.png" />
 
-    <!-- Add these lines in the <head> section of your index.html -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="apple-mobile-web-app-title" content="drpl.co">
-    <meta name="theme-color" content="#121212">
-    <link rel="apple-touch-icon" href="images/app.png">
-    
-    <!-- Preload theme script - MUST come before CSS -->
+    <link rel="canonical" href="https://drpl.co" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="images/app.png" />
+
+    <!-- Instant theme — must run before CSS -->
     <script>
-      // Immediately apply theme before page renders to prevent flash
-      (function() {
-        var savedTheme = localStorage.getItem('theme') || 'dark'; // Default to dark
-        if (savedTheme === 'dark') {
-          document.documentElement.setAttribute('data-theme', 'dark');
-        }
+      (function () {
+        var t = localStorage.getItem("theme") || "dark";
+        if (t === "dark")
+          document.documentElement.setAttribute("data-theme", "dark");
       })();
     </script>
-    
-    <!-- Styles -->
-    <link rel="stylesheet" type="text/css" href="styles/styles.css?v=1.0.32">
-    
-    <!-- FontAwesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- JSZip Library for creating ZIP files -->
+
+    <link rel="stylesheet" href="styles/styles.css?v=1.0.34" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-</head>
+  </head>
 
-<body>
-    <!-- Add this right after the <body> tag in your index.html -->
-    <div class="splash-screen" id="splash-screen">
-      <img src="images/favicon.png" alt="drpl.co" class="splash-logo">
-    </div>
-
-    <!-- Background Animation Canvas - Visual element that creates a subtle animated background -->
+  <body>
     <canvas id="background-canvas"></canvas>
-    
-    <!-- Header - Contains navigation and controls -->
+
     <header>
-        <div class="header-left">
-            <a href="https://github.com/MohdYahyaMahmodi/drpl.co" class="icon-button" target="_blank" rel="noopener" title="View drpl.co on GitHub">
-                <i class="fab fa-github"></i>
-            </a>
-        </div>
-        <div class="header-right">
-            <button id="manual-refresh" class="icon-button" title="Refresh Connections">
-                <i class="fas fa-redo-alt"></i>
-            </button>
-            <button id="theme-toggle" class="icon-button" title="Toggle dark mode">
-                <i class="fas fa-sun"></i>
-            </button>
-            <a href="#about" class="icon-button" title="About drpl.co - AirDrop alternative">
-                <i class="fas fa-info-circle"></i>
-            </a>
-        </div>
+      <div class="header-left">
+        <a
+          href="https://github.com/MohdYahyaMahmodi/drpl.co"
+          class="icon-button"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="GitHub"
+        >
+          <i class="fab fa-github"></i>
+        </a>
+      </div>
+      <div class="header-right">
+        <button
+          id="manual-refresh"
+          class="icon-button"
+          title="Refresh Connections"
+        >
+          <i class="fas fa-redo-alt"></i>
+        </button>
+        <button id="theme-toggle" class="icon-button" title="Toggle theme">
+          <i class="fas fa-sun"></i>
+        </button>
+        <a href="#about" class="icon-button" title="About">
+          <i class="fas fa-info-circle"></i>
+        </a>
+      </div>
     </header>
 
-    <!-- Peers Container - Main area that displays available devices -->
     <div id="peers-container" class="center">
-        <div id="peers"></div>
-        <div id="no-peers">
-            <h2>Open drpl.co on your other devices to start sharing files.</h2>
-            <p>Devices on the same network appear here automatically. Simply click on a device to send files or messages.</p>
-        </div>
+      <div id="peers"></div>
+      <div id="no-peers">
+        <h2>Open drpl.co on your other devices to start sharing.</h2>
+        <p>Devices on the same network appear here automatically.</p>
+      </div>
     </div>
 
-    <!-- Footer - Contains user display name info -->
     <footer>
-        <div id="display-name"></div>
+      <div id="display-name"></div>
     </footer>
 
-    <!-- Receive Dialog - Shows received files with carousel navigation -->
+    <!-- ── Receive Dialog ─────────────────────────────────────── -->
     <div id="receive-dialog" class="dialog">
-        <div class="dialog-background center">
-            <div class="dialog-content">
-                <h3>Files Received</h3>
-                
-                <div class="file-carousel">
-                    <!-- Navigation buttons for moving between files -->
-                    <div class="carousel-navigation">
-                        <button class="carousel-nav-button prev" id="carousel-prev">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <div class="carousel-counter">
-                            <span id="current-file">1</span> / <span id="total-files">1</span>
-                        </div>
-                        <button class="carousel-nav-button next" id="carousel-next">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-                    
-                    <!-- Container for displaying received files -->
-                    <div class="carousel-item-container">
-                        <!-- Files will be displayed here -->
-                    </div>
-                </div>
-                
-                <!-- Actions for received files -->
-                <div class="dialog-buttons carousel-actions">
-                    <a class="button" id="download-current" title="Download this file">
-                        <i class="fas fa-download"></i> Download File
-                    </a>
-                    <button class="button secondary" id="download-all">
-                        <i class="fas fa-file-archive"></i> Download All
-                    </button>
-                    <button class="button secondary" id="close-receive">Close</button>
-                </div>
+      <div class="dialog-background center">
+        <div class="dialog-content">
+          <h3>Files Received</h3>
+          <div class="file-carousel">
+            <div class="carousel-navigation">
+              <button class="carousel-nav-button" id="carousel-prev">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <div class="carousel-counter">
+                <span id="current-file">1</span> /
+                <span id="total-files">1</span>
+              </div>
+              <button class="carousel-nav-button" id="carousel-next">
+                <i class="fas fa-chevron-right"></i>
+              </button>
             </div>
+            <div class="carousel-item-container"></div>
+          </div>
+          <div class="dialog-buttons carousel-actions">
+            <a class="button" id="download-current"
+              ><i class="fas fa-download"></i> Download</a
+            >
+            <button class="button secondary" id="download-all">
+              <i class="fas fa-file-archive"></i> Download All
+            </button>
+            <button class="button secondary" id="close-receive">Close</button>
+          </div>
         </div>
+      </div>
     </div>
 
-    <!-- Send Text Dialog - Interface for sending text messages -->
-    <div id="send-text-dialog" class="dialog">
-        <div class="dialog-background center">
-            <div class="dialog-content">
-                <h3>Send a Message</h3>
-                <div id="text-input" class="textarea" contenteditable="true" placeholder="Type your message here..."></div>
-                <div class="dialog-buttons">
-                    <button class="button" id="send-text-button">Send</button>
-                    <button class="button secondary" id="close-text-send">Cancel</button>
-                </div>
+    <!-- ── Chat Dialog ────────────────────────────────────────── -->
+    <div id="chat-dialog" class="dialog">
+      <div class="dialog-background center">
+        <div class="dialog-content chat-dialog-content">
+          <div class="chat-header">
+            <div class="chat-header-avatar"><i class="fas fa-user"></i></div>
+            <div class="chat-header-info">
+              <div id="chat-peer-name" class="chat-peer-name">Device</div>
+              <div class="chat-peer-status">on your network</div>
             </div>
-        </div>
-    </div>
-
-    <!-- Receive Text Dialog - Shows received messages with reply option -->
-    <div id="receive-text-dialog" class="dialog">
-        <div class="dialog-background center">
-            <div class="dialog-content">
-                <h3>Message Received</h3>
-                <div class="message-container">
-                    <div id="received-text" class="received-text"></div>
-                </div>
-                
-                <div class="reply-container">
-                    <div id="reply-input" class="textarea" contenteditable="true" placeholder="Type your reply..."></div>
-                </div>
-                
-                <div class="dialog-buttons">
-                    <button class="button" id="reply-button">Reply</button>
-                    <button class="button" id="copy-text">Copy</button>
-                    <button class="button secondary" id="close-text-receive">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Action Dialog - Shown when a peer is selected to initiate an action -->
-    <div id="action-dialog" class="dialog">
-        <div class="dialog-background center">
-            <div class="dialog-content">
-                <h3 id="action-title">Connect</h3>
-                <div class="action-buttons">
-                    <button class="button action-button" id="send-file-button">
-                        <i class="fas fa-file"></i> Send Files
-                    </button>
-                    <button class="button action-button" id="send-text-action">
-                        <i class="fas fa-comment"></i> Send Message
-                    </button>
-                </div>
-                <div class="dialog-buttons">
-                    <button class="button secondary" id="close-action">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- File Transfer Progress Dialog - Shows active file transfer status -->
-    <div id="transfer-progress-dialog" class="dialog">
-        <div class="dialog-background center">
-            <div class="dialog-content">
-                <h3 id="transfer-title">Transferring Files</h3>
-                <div class="transfer-progress-container">
-                    <div class="spinner-container">
-                        <div class="spinner-ring"></div>
-                        <div class="progress-percentage">0%</div>
-                    </div>
-                    <div class="transfer-details">
-                        <div class="file-counter">File <span id="current-transfer-file">1</span> of <span id="total-transfer-files">1</span></div>
-                        <div class="transfer-filename" id="transfer-filename">filename.jpg</div>
-                    </div>
-                </div>
-                <div class="transfer-speed" id="transfer-speed">0 KB/s</div>
-                <div class="dialog-buttons">
-                    <button class="button secondary" id="close-transfer">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification - Displays temporary messages to the user -->
-    <div class="toast-container center">
-        <div id="toast" class="toast">File Transfer Completed</div>
-    </div>
-
-<!-- About Page - Information about the application -->
-<div id="about" class="about">
-    <div class="about-content center fade-in">
-        <div class="about-header">
-            <a href="#" class="close icon-button">
+            <div class="chat-header-actions">
+              <button
+                id="chat-clear"
+                class="icon-button chat-action-btn"
+                title="Clear messages"
+              >
+                <i class="fas fa-trash-alt"></i>
+              </button>
+              <button
+                id="close-chat"
+                class="icon-button chat-action-btn"
+                title="Close"
+              >
                 <i class="fas fa-times"></i>
-            </a>
-        </div>
-        
-        <div class="about-container">
-            <div class="about-logo-section">
-                <div class="about-logo">
-                    <img src="images/favicon.png" alt="drpl.co local file sharing">
-                </div>
-                <h1>drpl.co - Local Network File Sharing</h1>
-                <div class="about-tagline">
-                    <p>The simple, secure way to share files between any devices on your local network.</p>
-                </div>
+              </button>
             </div>
-            
-            <div class="about-divider"></div>
-            
-            <div class="about-details">
-                <h2>How It Works</h2>
-                <div class="about-steps">
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-network-wired"></i></div>
-                        <p><strong>Local Network Discovery:</strong> drpl.co connects devices on the same WiFi or local network, enabling direct file sharing without cloud storage or servers.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-mobile-alt"></i></div>
-                        <p><strong>Cross-Platform Compatibility:</strong> Works on Windows, Mac, Linux, Android, and iPhone. Simply open drpl.co in any browser for instant device recognition.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-share-alt"></i></div>
-                        <p><strong>Direct File Transfer:</strong> Select any visible device to send files or messages. Transfers happen directly between devices for maximum speed.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-lock"></i></div>
-                        <p><strong>Privacy-First Approach:</strong> Files are never stored on external servers. All transfers are peer-to-peer for complete privacy and security.</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="about-divider"></div>
+          </div>
 
-            
-            
-            <div class="about-details">
-                <h2>Troubleshooting Guide</h2>
-                <div class="about-steps">
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-sync"></i></div>
-                        <p><strong>Connection Issues:</strong> If your devices are not appearing or files are failing to send, try refreshing the page. Make sure all devices are connected to the same WiFi network and are not using VPNs.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-shield-alt"></i></div>
-                        <p><strong>Transfer Problems:</strong> Some firewalls block WebRTC connections needed for file transfers. Check your firewall settings or try using Chrome/Edge browsers.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-ban"></i></div>
-                        <p><strong>Feature Limitations:</strong> Ad blockers or privacy extensions may interfere with device discovery. Try temporarily disabling them for this site.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-wifi"></i></div>
-                        <p><strong>Speed Optimization:</strong> Transfer speeds depend on local network quality. For faster transfers, reduce network congestion or use wired connections.</p>
-                    </div>
-                </div>
-            </div>
+          <div id="chat-messages" class="chat-messages"></div>
 
-            <div class="about-details">
-                <h2>Why Choose drpl.co?</h2>
-                <div class="about-steps">
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-universal-access"></i></div>
-                        <p><strong>Universal Compatibility:</strong> Unlike AirDrop which only works between Apple devices, drpl.co works across all platforms and operating systems.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-user-shield"></i></div>
-                        <p><strong>Enhanced Privacy:</strong> No account creation, no data collection, and no third-party servers involved in your file transfers.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-infinity"></i></div>
-                        <p><strong>Unlimited File Sharing:</strong> Send files of any size or type without restrictions, compression, or quality loss.</p>
-                    </div>
-                    
-                    <div class="about-step">
-                        <div class="step-icon"><i class="fas fa-bolt"></i></div>
-                        <p><strong>Instant Setup:</strong> Zero installation or configuration required—simply open the website on both devices and start sharing.</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="about-divider"></div>
-            
-            <div class="about-footer">
-                <p>drpl.co is a free, open-source alternative to AirDrop and SnapDrop. Created to make file sharing accessible across all platforms without limitations.</p>
-                <p>For developers: <a href="https://github.com/MohdYahyaMahmodi/drpl.co" target="_blank" rel="noopener">Contribute on GitHub</a></p>
-            </div>
+          <div class="chat-input-bar">
+            <textarea
+              id="chat-input"
+              class="chat-input"
+              placeholder="Message…"
+              rows="1"
+              maxlength="5000"
+            ></textarea>
+            <button id="chat-send-btn" class="chat-send-btn" title="Send">
+              <i class="fas fa-arrow-up"></i>
+            </button>
+          </div>
         </div>
+      </div>
     </div>
-    <div class="about-background"></div>
-</div>
 
-    <!-- Hidden File Input - Used for selecting files to send -->
-    <input type="file" id="file-input" multiple hidden>
+    <!-- ── Action Dialog ──────────────────────────────────────── -->
+    <div id="action-dialog" class="dialog">
+      <div class="dialog-background center">
+        <div class="dialog-content action-dialog-content">
+          <div class="action-peer-info">
+            <div class="action-peer-avatar"><i class="fas fa-desktop"></i></div>
+            <div>
+              <div id="action-title" class="action-peer-name">Device</div>
+              <div id="action-device-label" class="action-peer-device">
+                Unknown Device
+              </div>
+            </div>
+          </div>
+          <div class="action-buttons">
+            <button class="action-card" id="send-file-button">
+              <div class="action-card-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </div>
+              <div class="action-card-label">Send Files</div>
+            </button>
+            <button class="action-card" id="send-text-action">
+              <div class="action-card-icon"><i class="fas fa-comment"></i></div>
+              <div class="action-card-label">Message</div>
+            </button>
+          </div>
+          <div class="dialog-buttons">
+            <button class="button secondary" id="close-action">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <!-- Audio Elements - Sound effects for user feedback -->
+    <!-- ── Transfer Progress Dialog ───────────────────────────── -->
+    <div id="transfer-progress-dialog" class="dialog">
+      <div class="dialog-background center">
+        <div class="dialog-content transfer-dialog-content">
+          <h3 id="transfer-title">Transferring</h3>
+          <div class="transfer-progress-container">
+            <div class="spinner-container">
+              <div class="spinner-ring"></div>
+              <div class="progress-percentage">0%</div>
+            </div>
+            <div class="transfer-details">
+              <div class="file-counter">
+                File <span id="current-transfer-file">1</span> of
+                <span id="total-transfer-files">1</span>
+              </div>
+              <div class="transfer-filename" id="transfer-filename">
+                filename
+              </div>
+            </div>
+          </div>
+          <div class="transfer-speed" id="transfer-speed">
+            Check other device...
+          </div>
+          <div class="dialog-buttons">
+            <button class="button secondary" id="close-transfer">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Toast ──────────────────────────────────────────────── -->
+    <div class="toast-container center">
+      <div id="toast" class="toast"></div>
+    </div>
+
+    <!-- ── About ──────────────────────────────────────────────── -->
+    <div id="about" class="about">
+      <div class="about-content center fade-in">
+        <div class="about-header">
+          <a href="#" class="close icon-button"><i class="fas fa-times"></i></a>
+        </div>
+        <div class="about-container">
+          <div class="about-logo-section">
+            <div class="about-logo">
+              <img src="images/favicon.png" alt="drpl.co" />
+            </div>
+            <h1>drpl.co</h1>
+            <div class="about-tagline">
+              <p>
+                Simple, private file sharing across all your devices on the same
+                network.
+              </p>
+            </div>
+          </div>
+          <div class="about-divider"></div>
+          <div class="about-details">
+            <h2>How It Works</h2>
+            <div class="about-steps">
+              <div class="about-step">
+                <div class="step-icon">
+                  <i class="fas fa-network-wired"></i>
+                </div>
+                <p>
+                  <strong>Local Network Discovery:</strong> Devices on the same
+                  WiFi appear automatically — no setup required.
+                </p>
+              </div>
+              <div class="about-step">
+                <div class="step-icon"><i class="fas fa-share-alt"></i></div>
+                <p>
+                  <strong>Direct Transfer:</strong> Click a device to send files
+                  or messages directly, peer-to-peer.
+                </p>
+              </div>
+              <div class="about-step">
+                <div class="step-icon"><i class="fas fa-lock"></i></div>
+                <p>
+                  <strong>Private by Design:</strong> Files never touch external
+                  servers. Everything stays on your local network.
+                </p>
+              </div>
+              <div class="about-step">
+                <div class="step-icon"><i class="fas fa-bolt"></i></div>
+                <p>
+                  <strong>Zero Setup:</strong> No installs, no accounts. Just
+                  open the site on both devices.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="about-divider"></div>
+          <div class="about-details">
+            <h2>Troubleshooting</h2>
+            <div class="about-steps">
+              <div class="about-step">
+                <div class="step-icon"><i class="fas fa-sync"></i></div>
+                <p>
+                  Devices not showing? Make sure both are on the same WiFi.
+                  Disable VPNs if active.
+                </p>
+              </div>
+              <div class="about-step">
+                <div class="step-icon"><i class="fas fa-shield-alt"></i></div>
+                <p>
+                  Transfer failing? Firewalls can block WebRTC. Try Chrome or
+                  Edge for best compatibility.
+                </p>
+              </div>
+              <div class="about-step">
+                <div class="step-icon"><i class="fas fa-ban"></i></div>
+                <p>
+                  Ad blockers may interfere with device discovery — try
+                  disabling them for this site.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="about-divider"></div>
+          <div class="about-footer">
+            <p>
+              Free, open-source alternative to AirDrop. Works on all platforms.
+            </p>
+            <p>
+              <a
+                href="https://github.com/MohdYahyaMahmodi/drpl.co"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Contribute on GitHub</a
+              >
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="about-background"></div>
+    </div>
+
+    <input type="file" id="file-input" multiple hidden />
     <audio id="sent-sound" src="sent.mp3" preload="auto"></audio>
 
-    <!-- Schema.org structured data for better SEO -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "drpl.co",
-      "url": "https://drpl.co",
-      "description": "A free, open-source AirDrop alternative and SnapDrop replacement for sharing files between any devices on the same network.",
-      "applicationCategory": "UtilityApplication",
-      "operatingSystem": "All",
-      "offers": {
-        "@type": "Offer",
-        "price": "0"
-      },
-      "about": {
-        "@type": "Thing",
-        "name": "Cross-platform file sharing",
-        "description": "Easy file transfer between devices on the same network"
-      },
-      "features": [
-        "Cross-platform file sharing",
-        "No account required",
-        "No installation required",
-        "Direct device-to-device transmission",
-        "End-to-end privacy",
-        "Works on all major operating systems",
-        "No file size limits",
-        "Peer-to-peer file transfer",
-        "Instant device discovery",
-        "Text messaging capability",
-        "Secure local network sharing"
-      ]
-    }
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "drpl.co",
+        "url": "https://drpl.co",
+        "description": "Free open-source AirDrop alternative for all devices.",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "All",
+        "offers": { "@type": "Offer", "price": "0" }
+      }
     </script>
 
-    <!-- Service Worker Registration -->
+    <!-- PWA splash (only in standalone mode) -->
     <script>
-        // Register service worker with versioning
-        if ('serviceWorker' in navigator) {
-          // Add version parameter to force update when version changes
-          const swVersion = '1.0.32'; // Change this when you update your service worker
-          
-          window.addEventListener('load', () => {
-            navigator.serviceWorker.register('scripts/sw.js?v=' + swVersion)
-              .then(registration => {
-                console.log('Service Worker registered with scope:', registration.scope);
-                
-                // Check for updates
-                registration.update();
-                
-                // Set up periodic checks for service worker updates
-                setInterval(() => {
-                  registration.update();
-                  console.log('Checking for service worker updates...');
-                }, 60 * 60 * 1000); // Check every hour
-              })
-              .catch(error => {
-                console.error('Service Worker registration failed:', error);
-              });
-          });
-        }
-      
-        // Handle splash screen
-        document.addEventListener('DOMContentLoaded', () => {
-          const splashScreen = document.getElementById('splash-screen');
-          
-          // Only show splash screen in standalone mode (installed PWA)
-          const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || 
-                                    window.navigator.standalone || 
-                                    document.referrer.includes('android-app://');
-          
-          if (!isInStandaloneMode) {
-            // Hide splash immediately if not in PWA mode
-            if (splashScreen) {
-              splashScreen.style.display = 'none';
-            }
-          } else {
-            // Show splash screen for PWA and hide after delay
-            setTimeout(() => {
-              if (splashScreen) {
-                splashScreen.classList.add('hidden');
-                
-                // Remove from DOM after transition completes
-                setTimeout(() => {
-                  splashScreen.remove();
-                }, 500);
-              }
-            }, 1500); // Show splash for 1.5 seconds
-          }
-        });
-      </script>
+      (function () {
+        const standalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          window.navigator.standalone ||
+          document.referrer.includes("android-app://");
+        if (!standalone) return;
+        const splash = document.createElement("div");
+        splash.className = "splash-screen";
+        splash.id = "splash-screen";
+        const img = document.createElement("img");
+        img.src = "images/favicon.png";
+        img.alt = "drpl.co";
+        img.className = "splash-logo";
+        splash.appendChild(img);
+        document.body.insertBefore(splash, document.body.firstChild);
+        setTimeout(() => {
+          splash.classList.add("hidden");
+          setTimeout(() => splash.remove(), 500);
+        }, 1500);
+      })();
+    </script>
 
-    <!-- Scripts - Make sure they're loaded in the correct order -->
-    <script src="scripts/network.js?v=1.0.32"></script>
-    <script src="scripts/theme.js?v=1.0.32"></script>
-    <script src="scripts/background-animation.js?v=1.0.32"></script>
-    <script src="scripts/notifications.js?v=1.0.32"></script>
-    <script src="scripts/ui.js?v=1.0.32"></script>
-</body>
+    <!-- Service Worker -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("scripts/sw.js?v=1.0.34")
+            .then((reg) => {
+              reg.update();
+              setInterval(() => reg.update(), 3600000);
+              reg.addEventListener("updatefound", () => {
+                const w = reg.installing;
+                w.addEventListener("statechange", () => {
+                  if (
+                    w.state === "installed" &&
+                    navigator.serviceWorker.controller
+                  ) {
+                    if (window.drplUI)
+                      window.drplUI.showToast(
+                        "Update available — refresh for the latest version.",
+                      );
+                  }
+                });
+              });
+            })
+            .catch((e) => console.error("SW registration failed:", e));
+        });
+      }
+    </script>
+
+    <script src="scripts/network.js?v=1.0.34"></script>
+    <script src="scripts/theme.js?v=1.0.34"></script>
+    <script src="scripts/background-animation.js?v=1.0.34"></script>
+    <script src="scripts/notifications.js?v=1.0.34"></script>
+    <script src="scripts/ui.js?v=1.0.34"></script>
+  </body>
 </html>
