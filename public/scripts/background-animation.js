@@ -1,101 +1,135 @@
-// Background animation
+/**
+ * drpl.co - background canvas
+ *
+ * The floating particle mesh behind the UI. Neutral dots with faint
+ * connecting lines; a small fraction of dots carry the accent orange.
+ * Pauses when the tab is hidden and respects reduced-motion.
+ */
+
 class BackgroundAnimation {
   constructor() {
-    this.canvas = document.getElementById('background-canvas');
+    this.canvas = document.getElementById("background-canvas");
     if (!this.canvas) return;
-    
-    this.ctx = this.canvas.getContext('2d');
-    this.resizeCanvas();
+
+    this.ctx = this.canvas.getContext("2d");
+    this.reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    this.running = false;
+
+    this.resize();
     this.initParticles();
-    this.animate();
-    
-    // Handle resize events
-    window.addEventListener('resize', () => this.resizeCanvas());
-    
-    // Set dark mode based on data-theme attribute
     this.updateTheme();
-    document.addEventListener('theme-changed', () => this.updateTheme());
-  }
-  
-  resizeCanvas() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
-    
-    // Re-initialize particles on resize
-    if (this.particles) {
+
+    window.addEventListener("resize", () => {
+      this.resize();
       this.initParticles();
+      if (this.reducedMotion) this.drawFrame();
+    });
+    document.addEventListener("theme-changed", () => {
+      this.updateTheme();
+      if (this.reducedMotion) this.drawFrame();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        this.running = false;
+      } else {
+        this.start();
+      }
+    });
+
+    this.start();
+  }
+
+  start() {
+    if (this.reducedMotion) {
+      // A single static frame; no animation loop
+      this.drawFrame();
+      return;
     }
+    if (this.running) return;
+    this.running = true;
+    this.loop();
   }
-  
+
+  resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
+    this.canvas.width = this.width * dpr;
+    this.canvas.height = this.height * dpr;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
   updateTheme() {
-    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
-    this.particleColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
-    this.lineColor = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)';
+    const dark =
+      document.documentElement.getAttribute("data-theme") === "dark";
+    // Monochrome constellation. Light mode uses a very dark gray at low
+    // alpha so the mesh is actually visible without competing with content.
+    this.dotColor = dark
+      ? "rgba(250, 250, 250, 0.11)"
+      : "rgba(23, 23, 23, 0.14)";
+    this.lineColor = dark
+      ? "rgba(250, 250, 250, 0.05)"
+      : "rgba(23, 23, 23, 0.06)";
   }
-  
+
   initParticles() {
-    // Calculate number of particles based on screen size
-    const particleCount = Math.min(100, Math.floor(this.canvas.width * this.canvas.height / 15000));
-    
+    const count = Math.min(
+      90,
+      Math.floor((this.width * this.height) / 16000),
+    );
     this.particles = [];
-    for (let i = 0; i < particleCount; i++) {
+    for (let i = 0; i < count; i++) {
       this.particles.push({
-        x: Math.random() * this.canvas.width,
-        y: Math.random() * this.canvas.height,
-        radius: Math.random() * 3 + 1,
-        vx: Math.random() * 0.5 - 0.25,
-        vy: Math.random() * 0.5 - 0.25
+        x: Math.random() * this.width,
+        y: Math.random() * this.height,
+        radius: Math.random() * 2.2 + 1,
+        vx: Math.random() * 0.4 - 0.2,
+        vy: Math.random() * 0.4 - 0.2,
       });
     }
   }
-  
-  animate() {
-    if (!this.ctx) return;
-    
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // Update and draw particles
-    for (let i = 0; i < this.particles.length; i++) {
-      const p = this.particles[i];
-      
-      // Move particles
-      p.x += p.vx;
-      p.y += p.vy;
-      
-      // Bounce off edges
-      if (p.x < 0 || p.x > this.canvas.width) p.vx = -p.vx;
-      if (p.y < 0 || p.y > this.canvas.height) p.vy = -p.vy;
-      
-      // Draw particle
-      this.ctx.beginPath();
-      this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-      this.ctx.fillStyle = this.particleColor;
-      this.ctx.fill();
-      
-      // Draw connections
-      for (let j = i + 1; j < this.particles.length; j++) {
-        const p2 = this.particles[j];
-        const dx = p.x - p2.x;
-        const dy = p.y - p2.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // Only draw connections if particles are close enough
-        if (distance < 150) {
-          this.ctx.beginPath();
-          this.ctx.moveTo(p.x, p.y);
-          this.ctx.lineTo(p2.x, p2.y);
-          this.ctx.strokeStyle = this.lineColor;
-          this.ctx.lineWidth = 1;
-          this.ctx.stroke();
+
+  drawFrame() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.width, this.height);
+
+    const particles = this.particles;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+
+      if (this.running) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > this.width) p.vx = -p.vx;
+        if (p.y < 0 || p.y > this.height) p.vy = -p.vy;
+      }
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fillStyle = this.dotColor;
+      ctx.fill();
+
+      for (let j = i + 1; j < particles.length; j++) {
+        const q = particles[j];
+        const dx = p.x - q.x;
+        const dy = p.y - q.y;
+        if (dx * dx + dy * dy < 150 * 150) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = this.lineColor;
+          ctx.lineWidth = 1;
+          ctx.stroke();
         }
       }
     }
-    
-    requestAnimationFrame(() => this.animate());
+  }
+
+  loop() {
+    if (!this.running) return;
+    this.drawFrame();
+    requestAnimationFrame(() => this.loop());
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Will be initialized in the UI code
-  console.log('Background animation loaded');
-});

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "drpl",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "port": 3002,
+      "autoPort": true
+    }
+  ]
+}
