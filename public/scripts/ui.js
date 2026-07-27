@@ -102,118 +102,163 @@ function formatClock(ts) {
   });
 }
 
-// ── Motion (GSAP with CSS fallback; never animates hidden tabs) ──────────────
+// ── Motion ───────────────────────────────────────────────────────────────────
 
+// Animation is a CSS class the element wears for the length of one keyframe
+// run. No animation library, no external request, and nothing to fall back to
+// when a CDN is slow. Hidden tabs and reduced-motion skip straight to the end
+// state, which is why every helper is safe to call unconditionally.
 const Motion = {
   get ok() {
-    const ok =
-      !!window.gsap &&
+    return (
       document.visibilityState === "visible" &&
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    document.documentElement.classList.toggle("no-gsap", !window.gsap);
-    return ok;
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
   },
 
-  _ensureFinished(tween, ms) {
-    setTimeout(() => {
-      if (tween && tween.isActive()) tween.progress(1);
-    }, ms);
+  _play(el, className, duration) {
+    if (!el || !this.ok) return;
+    el.classList.remove(className);
+    void el.offsetWidth; // restart the animation if it is already running
+    el.classList.add(className);
+    setTimeout(() => el.classList.remove(className), duration);
   },
 
   rowIn(el, index = 0) {
-    if (!this.ok) return;
-    gsap.fromTo(
-      el,
-      { y: 6, autoAlpha: 0 },
-      {
-        y: 0,
-        autoAlpha: 1,
-        duration: 0.25,
-        delay: index * 0.03,
-        ease: "power2.out",
-        clearProps: "all",
-      },
-    );
+    if (!el || !this.ok) return;
+    el.style.animationDelay = `${Math.min(index, 8) * 30}ms`;
+    this._play(el, "anim-row-in", 300 + index * 30);
   },
 
   rowOut(el, done) {
-    if (!this.ok) {
+    if (!el || !this.ok) {
       done();
       return;
     }
-    this._ensureFinished(
-      gsap.to(el, {
-        autoAlpha: 0,
-        duration: 0.15,
-        ease: "power2.in",
-        onComplete: done,
-      }),
-      350,
-    );
+    el.classList.add("anim-row-out");
+    setTimeout(done, 150);
   },
 
   paneIn(el) {
-    if (!this.ok) return;
-    gsap.fromTo(
-      el,
-      { y: 6, autoAlpha: 0 },
-      { y: 0, autoAlpha: 1, duration: 0.22, ease: "power2.out", clearProps: "all" },
-    );
+    this._play(el, "anim-pane-in", 240);
   },
 
   pop(el) {
-    if (!this.ok) return;
-    gsap.fromTo(
-      el,
-      { scale: 0.6 },
-      { scale: 1, duration: 0.35, ease: "back.out(1.8)", clearProps: "scale" },
-    );
+    this._play(el, "anim-pop", 360);
   },
 
   pulse(el) {
-    if (!this.ok) return;
-    gsap.fromTo(
-      el,
-      { scale: 0.97 },
-      { scale: 1, duration: 0.25, ease: "power2.out", clearProps: "scale" },
-    );
+    this._play(el, "anim-pulse", 260);
   },
 };
 
-// ── Toasts (Toastify-js with built-in fallback) ──────────────────────────────
+// ── Toasts ───────────────────────────────────────────────────────────────────
 
+// Stacking, self-contained, and capped so a burst of events cannot bury the
+// app. Replaces Toastify: one less CDN request and one less third party.
 const Toast = {
+  MAX: 4,
+
   show(message, { icon = "info", tone = "", duration = 3200 } = {}) {
-    if (window.Toastify) {
-      const node = document.createElement("div");
-      node.style.display = "contents";
-      const iconWrap = document.createElement("span");
-      iconWrap.className = `toast-icon${tone ? ` ${tone}` : ""}`;
-      iconWrap.appendChild(makeIcon(icon));
-      const text = document.createElement("span");
-      text.className = "toast-text";
-      text.textContent = message;
-      node.append(iconWrap, text);
-      Toastify({
-        node,
-        duration,
-        gravity: "bottom",
-        position: "center",
-        offset: { x: 0, y: 12 },
-        close: false,
-        stopOnFocus: true,
-      }).showToast();
-      return;
+    const host = $("toasts");
+    if (!host) return null;
+
+    while (host.children.length >= this.MAX) host.firstElementChild.remove();
+
+    const el = document.createElement("div");
+    el.className = "toast";
+    const iconWrap = document.createElement("span");
+    iconWrap.className = `toast-icon${tone ? ` ${tone}` : ""}`;
+    iconWrap.appendChild(makeIcon(icon));
+    const text = document.createElement("span");
+    text.className = "toast-text";
+    text.textContent = message;
+    el.append(iconWrap, text);
+    host.appendChild(el);
+
+    const dismiss = () => {
+      if (!el.isConnected) return;
+      el.classList.add("leaving");
+      setTimeout(() => el.remove(), 200);
+    };
+    const timer = setTimeout(dismiss, duration);
+    el.addEventListener("click", () => {
+      clearTimeout(timer);
+      dismiss();
+    });
+    return el;
+  },
+};
+
+// ── Clipboard ────────────────────────────────────────────────────────────────
+
+// Copying is the whole point of sending a link or an image between your own
+// devices, so it gets a real implementation rather than a best effort.
+const Clipboard = {
+  async writeText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      return this._legacyText(text);
     }
-    const t = $("toast");
-    if (!t) return;
-    t.textContent = message;
-    t.classList.add("active");
-    clearTimeout(this._fallbackTimer);
-    this._fallbackTimer = setTimeout(
-      () => t.classList.remove("active"),
-      duration,
-    );
+  },
+
+  // image/png is the one type every browser accepts, so anything else is
+  // re-encoded through a canvas instead of failing. The value is handed over
+  // as a promise because Safari requires the ClipboardItem to be created
+  // while the click that triggered it is still the active gesture.
+  async writeImage(blob, mime) {
+    if (!navigator.clipboard || !window.ClipboardItem) return false;
+    const png = mime === "image/png" ? Promise.resolve(blob) : this._toPng(blob);
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": png }),
+      ]);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  _toPng(blob) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext("2d").drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(
+          (out) => (out ? resolve(out) : reject(new Error("encode failed"))),
+          "image/png",
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("decode failed"));
+      };
+      img.src = url;
+    });
+  },
+
+  // Older WebKit and any non-secure context land here
+  _legacyText(text) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:0;left:-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) {
+      return false;
+    }
   },
 };
 
@@ -264,22 +309,17 @@ const WakeLock = {
 class SpeedChart {
   constructor(canvas) {
     this.canvas = canvas;
+    // Samples belong to a transfer, not to the chart: several transfers can
+    // run at once and the chart renders whichever one is in focus.
     this.samples = [];
     this.max = 0;
     window.addEventListener("resize", () => this.draw());
     document.addEventListener("theme-changed", () => this.draw());
   }
 
-  reset() {
-    this.samples = [];
-    this.max = 0;
-    this.draw();
-  }
-
-  push(bps) {
-    this.samples.push(bps);
-    if (this.samples.length > 150) this.samples.shift();
-    this.max = Math.max(this.max, bps);
+  show(samples) {
+    this.samples = samples || [];
+    this.max = this.samples.reduce((m, v) => Math.max(m, v), 0);
     this.draw();
   }
 
@@ -344,6 +384,189 @@ class SpeedChart {
   }
 }
 
+// ── Incoming transfer consent ────────────────────────────────────────────────
+
+const CONSENT_SECONDS = 60;
+
+// Holds incoming requests until the person answers. Requests queue rather than
+// overwrite each other, and each one declines itself when its timer runs out
+// so the sending device always learns the outcome instead of hanging.
+class ConsentDialog {
+  constructor(ui) {
+    this.ui = ui;
+    this.queue = [];
+    this.active = null;
+    this.trusted = new Set(); // devices trusted for this session only
+    this._tick = null;
+
+    $("consent-accept").addEventListener("click", () => this._answer(true));
+    $("consent-decline").addEventListener("click", () => this._answer(false));
+    document
+      .querySelector("[data-consent-decline]")
+      .addEventListener("click", () => this._answer(false));
+    // Escape declines. There is deliberately no keyboard shortcut for
+    // accepting: the Accept button takes focus when the dialog opens, so
+    // Enter still works there, but a stray Enter aimed at something else
+    // cannot pull in files on its own.
+    document.addEventListener("keydown", (e) => {
+      if (!this.active || e.key !== "Escape") return;
+      e.preventDefault();
+      this._answer(false);
+    });
+
+    Events.on("transfer-request", (e) => this._onRequest(e.detail));
+    Events.on("transfer-request-withdrawn", (e) =>
+      this._onWithdrawn(e.detail),
+    );
+    Events.on("peer-left", (e) => this._onPeerLeft(e.detail));
+  }
+
+  _onRequest(req) {
+    if (this.trusted.has(req.peerId)) {
+      this._respond(req, true);
+      Toast.show(
+        `Receiving files from ${this.ui.peerName(req.peerId)}`,
+        { icon: "circle-arrow-down" },
+      );
+      return;
+    }
+    this.queue.push(req);
+    if (!this.active) this._next();
+    else this._renderQueue();
+  }
+
+  _onWithdrawn({ transferId }) {
+    this.queue = this.queue.filter((r) => r.transferId !== transferId);
+    if (this.active && this.active.transferId === transferId) {
+      this._close();
+      Toast.show("The other device cancelled the request", { icon: "info" });
+      this._next();
+    } else {
+      this._renderQueue();
+    }
+  }
+
+  _onPeerLeft(peerId) {
+    this.queue = this.queue.filter((r) => r.peerId !== peerId);
+    if (this.active && this.active.peerId === peerId) {
+      this._close();
+      this._next();
+    } else {
+      this._renderQueue();
+    }
+  }
+
+  _next() {
+    this.active = this.queue.shift() || null;
+    if (!this.active) {
+      this._renderQueue();
+      return;
+    }
+    this._render(this.active);
+  }
+
+  _render(req) {
+    const name = this.ui.peerName(req.peerId);
+    const count = req.files.length;
+    $("consent-from").textContent = name;
+    $("consent-summary").textContent =
+      `${count === 1 ? "1 file" : `${count} files`}, ${formatSize(req.totalSize)}`;
+
+    const list = $("consent-files");
+    list.innerHTML = "";
+    // Long batches are summarised rather than scrolled past
+    req.files.slice(0, 6).forEach((file) => {
+      const li = document.createElement("li");
+      li.appendChild(makeIcon(fileIconName(file.mime), "icon file-type-icon"));
+      const fname = document.createElement("span");
+      fname.className = "consent-file-name";
+      fname.textContent = file.name;
+      const fsize = document.createElement("span");
+      fsize.className = "consent-file-size mono";
+      fsize.textContent = formatSize(file.size);
+      li.append(fname, fsize);
+      list.appendChild(li);
+    });
+    if (count > 6) {
+      const li = document.createElement("li");
+      li.className = "consent-file-more";
+      li.textContent = `and ${count - 6} more`;
+      list.appendChild(li);
+    }
+
+    $("consent-trust").checked = false;
+    $("consent").classList.remove("hidden");
+    Motion.paneIn(document.querySelector(".consent-panel"));
+    $("consent-accept").focus();
+
+    this._startTimer(req);
+    this._renderQueue();
+  }
+
+  _startTimer(req) {
+    clearInterval(this._tick);
+    const badge = $("consent-timer");
+    const update = () => {
+      const left = Math.max(
+        0,
+        Math.ceil((req.expiresAt - Date.now()) / 1000),
+      );
+      badge.textContent = `${left}s`;
+      badge.classList.toggle("failed", left <= 10);
+      badge.classList.toggle("neutral", left > 10);
+      if (left <= 0) this._answer(false, "no-response");
+    };
+    update();
+    this._tick = setInterval(update, 250);
+  }
+
+  _renderQueue() {
+    const el = $("consent-queue");
+    el.classList.toggle("hidden", this.queue.length === 0);
+    if (this.queue.length) {
+      el.textContent =
+        this.queue.length === 1
+          ? "1 more request waiting"
+          : `${this.queue.length} more requests waiting`;
+    }
+  }
+
+  _answer(accepted, reason) {
+    const req = this.active;
+    if (!req) return;
+    if (accepted && $("consent-trust").checked) this.trusted.add(req.peerId);
+    this._respond(req, accepted, reason);
+    this._close();
+
+    const name = this.ui.peerName(req.peerId);
+    if (!accepted) {
+      Toast.show(
+        reason === "no-response"
+          ? `No answer in time, so the transfer from ${name} was declined`
+          : `Declined the files from ${name}`,
+        { icon: "x" },
+      );
+    }
+    this._next();
+  }
+
+  _respond(req, accepted, reason) {
+    Events.fire("respond-to-transfer", {
+      peerId: req.peerId,
+      transferId: req.transferId,
+      accepted,
+      reason,
+    });
+  }
+
+  _close() {
+    clearInterval(this._tick);
+    this._tick = null;
+    this.active = null;
+    $("consent").classList.add("hidden");
+  }
+}
+
 // ── Main controller ──────────────────────────────────────────────────────────
 
 class DrplUI {
@@ -354,11 +577,13 @@ class DrplUI {
     this.transfers = new TransfersPane(this);
     this.files = new FilesPane(this);
     this.messages = new MessagesPane(this);
+    this.consent = new ConsentDialog(this);
 
     this._initTabs();
     this._initSidebar();
     this._initNetworkEvents();
     this._initAboutEscape();
+    this._initDropzone();
     WakeLock.init();
   }
 
@@ -418,6 +643,20 @@ class DrplUI {
     Events.on("server-connected", () => this._setOnline(true));
     Events.on("server-disconnected", () => this._setOnline(false));
     Events.on("notify-user", (e) => Toast.show(e.detail));
+
+    // Falling back to the relay means the files pass through the signaling
+    // server instead of going device to device. That is a privacy change, so
+    // it is stated plainly rather than left in a stats row.
+    Events.on("peer-connection-changed", (e) => {
+      const d = e.detail;
+      if (d.transport !== "ws" || !d.connected) return;
+      if (this._relayWarned && this._relayWarned.has(d.peerId)) return;
+      (this._relayWarned = this._relayWarned || new Set()).add(d.peerId);
+      Toast.show(
+        `Could not open a direct connection to ${this.peerName(d.peerId)}. Falling back to relaying through the server.`,
+        { icon: "circle-alert", tone: "bad", duration: 6000 },
+      );
+    });
     Events.on("file-sent", () => this._playSound());
     Events.on("text-sent", () => this._playSound());
 
@@ -442,10 +681,7 @@ class DrplUI {
 
   _onPeerJoined(peer) {
     const existing = $(`peer-${peer.id}`);
-    if (existing) {
-      if (window.gsap) gsap.killTweensOf(existing);
-      existing.remove();
-    }
+    if (existing) existing.remove();
     this._addPeer(peer, 0);
     this._updateCount();
   }
@@ -535,29 +771,33 @@ class DrplUI {
   pickAndSend(peerId) {
     const input = $("file-input");
     input.value = "";
-    input.onchange = (e) => {
-      if (!e.target.files.length) return;
-      Events.fire("files-selected", { files: e.target.files, to: peerId });
-    };
+    input.onchange = (e) => this.sendFiles(e.target.files, peerId);
     input.click();
+  }
+
+  // Open the file picker for a conversation key, which may be a device or the
+  // Everyone group
+  sendFilesFromPicker(to) {
+    if (to === EVERYONE) {
+      this.pickAndSendToAll();
+      return;
+    }
+    if (!this.peerInfo[to]) {
+      Toast.show("That device is offline right now", { icon: "wifi-off" });
+      return;
+    }
+    this.pickAndSend(to);
   }
 
   // Pick once, send to every connected device
   pickAndSendToAll() {
-    const ids = Object.keys(this.peerInfo);
-    if (!ids.length) {
+    if (!Object.keys(this.peerInfo).length) {
       Toast.show("No devices to send to right now", { icon: "wifi-off" });
       return;
     }
     const input = $("file-input");
     input.value = "";
-    input.onchange = (e) => {
-      if (!e.target.files.length) return;
-      this.messages.logGroupFiles(e.target.files, ids);
-      ids.forEach((id) =>
-        Events.fire("files-selected", { files: e.target.files, to: id }),
-      );
-    };
+    input.onchange = (e) => this.sendFiles(e.target.files, EVERYONE);
     input.click();
   }
 
@@ -618,6 +858,115 @@ class DrplUI {
 
   // ---- misc ----
 
+  // ---- drag and drop ----
+
+  // Drop on a device row to send to that device, or anywhere else to send to
+  // whoever the Messages tab is pointed at. The dragged-over device row is
+  // highlighted, so the target is never a guess.
+  _initDropzone() {
+    const zone = $("dropzone");
+    let depth = 0;
+
+    const hasFiles = (e) =>
+      e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files");
+
+    const target = () => {
+      const ids = Object.keys(this.peerInfo);
+      if (!ids.length) return null;
+      const active = this.messages.activePeer;
+      if (active && (active === EVERYONE || this.peerInfo[active])) {
+        return active;
+      }
+      return ids.length === 1 ? ids[0] : null;
+    };
+
+    const describe = (peerRow) => {
+      if (peerRow) return `Send to ${this.peerName(peerRow)}`;
+      const to = target();
+      if (!to) return "Drop on a device to send";
+      if (to === EVERYONE) return "Send to every device";
+      return `Send to ${this.peerName(to)}`;
+    };
+
+    document.addEventListener("dragenter", (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth++;
+      zone.classList.remove("hidden");
+    });
+
+    document.addEventListener("dragover", (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      const row = e.target.closest && e.target.closest(".peer");
+      document
+        .querySelectorAll(".peer.drop-target")
+        .forEach((el) => el.classList.remove("drop-target"));
+      if (row) row.classList.add("drop-target");
+      $("dropzone-text").textContent = describe(
+        row ? row.id.replace("peer-", "") : null,
+      );
+    });
+
+    document.addEventListener("dragleave", (e) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) this._endDrag();
+    });
+
+    document.addEventListener("drop", (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      const row = e.target.closest && e.target.closest(".peer");
+      this._endDrag();
+
+      const files = Array.from(e.dataTransfer.files);
+      if (!files.length) return;
+
+      const to = row ? row.id.replace("peer-", "") : target();
+      if (!to) {
+        Toast.show(
+          Object.keys(this.peerInfo).length
+            ? "Drop the files on a device to choose where they go"
+            : "No devices to send to right now",
+          { icon: "circle-alert", tone: "bad" },
+        );
+        return;
+      }
+      this.sendFiles(files, to);
+    });
+  }
+
+  _endDrag() {
+    $("dropzone").classList.add("hidden");
+    document
+      .querySelectorAll(".peer.drop-target")
+      .forEach((el) => el.classList.remove("drop-target"));
+  }
+
+  // One route for every way files get sent: picker, drag and drop, paste
+  sendFiles(files, to) {
+    const list = Array.from(files);
+    if (!list.length) return;
+    if (to === EVERYONE) {
+      const ids = Object.keys(this.peerInfo);
+      if (!ids.length) {
+        Toast.show("No devices to send to right now", { icon: "wifi-off" });
+        return;
+      }
+      this.messages.logGroupFiles(list, ids);
+      ids.forEach((id) => Events.fire("files-selected", { files: list, to: id }));
+      return;
+    }
+    if (!this.peerInfo[to]) {
+      Toast.show("That device is no longer available", { icon: "wifi-off" });
+      return;
+    }
+    Events.fire("files-selected", { files: list, to });
+  }
+
   _initAboutEscape() {
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && location.hash === "#about") {
@@ -643,6 +992,9 @@ class DrplUI {
 const CANCEL_REASONS = {
   cancelled: "Transfer cancelled.",
   remote: "The other device cancelled the transfer.",
+  declined: "The other device declined the files.",
+  "no-response":
+    "The other device did not answer within a minute, so nothing was sent.",
   "connection-lost":
     "Connection to the device was lost mid-transfer. Send the files again once it reappears.",
   "size-mismatch":
@@ -654,7 +1006,11 @@ const CANCEL_REASONS = {
 class TransfersPane {
   constructor(ui) {
     this.ui = ui;
-    this.current = null;
+    // Several transfers can be in flight at once (two devices sending to you,
+    // or sending while receiving). Each is tracked by id; the card shows the
+    // focused one and "Also running" lists the rest.
+    this.byId = new Map();
+    this.focusId = null;
     this.recent = [];
     this.session = {
       sentBytes: 0,
@@ -678,6 +1034,7 @@ class TransfersPane {
       }
     });
 
+    Events.on("transfer-pending", (e) => this._onPending(e.detail));
     Events.on("transfer-started", (e) => this._onStarted(e.detail));
     Events.on("transfer-progress", (e) => this._onProgress(e.detail));
     Events.on("file-active", (e) => this._onFileActive(e.detail));
@@ -692,11 +1049,89 @@ class TransfersPane {
     Events.on("transfer-complete", (e) => this._onComplete(e.detail));
     Events.on("transfer-cancelled", (e) => this._onCancelled(e.detail));
 
+    $("tp-others").addEventListener("click", (e) => {
+      const row = e.target.closest("[data-transfer-id]");
+      if (row) this._focus(row.dataset.transferId);
+    });
+
     setInterval(() => this._tick(), 500);
     this._renderSession();
   }
 
+  // The transfer the detail card is showing
+  get current() {
+    return (this.focusId && this.byId.get(this.focusId)) || null;
+  }
+
+  _isLive(t) {
+    return t && !t.done && !t.error;
+  }
+
+  _liveCount() {
+    let n = 0;
+    this.byId.forEach((t) => {
+      if (this._isLive(t)) n++;
+    });
+    return n;
+  }
+
+  _focus(transferId) {
+    if (!this.byId.has(transferId) || this.focusId === transferId) return;
+    this.focusId = transferId;
+    this._renderAll();
+  }
+
+  // Waiting on the other device to accept. Shown as its own state so it is
+  // obvious nothing has been sent yet.
+  _onPending(d) {
+    this._pruneFinished();
+    this.byId.set(d.transferId, {
+      peerId: d.peerId,
+      transferId: d.transferId,
+      direction: d.direction,
+      files: d.files,
+      totalSize: d.totalSize,
+      bytes: 0,
+      doneCount: 0,
+      activeIndex: -1,
+      startedAt: Date.now(),
+      expiresAt: d.expiresAt,
+      pending: true,
+      speed: null,
+      peak: 0,
+      samples: [],
+      done: false,
+      error: null,
+      _lastBytes: 0,
+      _lastTime: Date.now(),
+    });
+    this.focusId = d.transferId;
+    this._renderAll();
+    this.ui.switchTab("pane-transfers");
+  }
+
+  _pruneFinished() {
+    this.byId.forEach((t, id) => {
+      if (!this._isLive(t) && id !== this.focusId) this.byId.delete(id);
+    });
+  }
+
   _onStarted(d) {
+    // A send that was waiting for consent keeps its card and drops the
+    // pending state rather than starting a second one.
+    const waiting = this.byId.get(d.transferId);
+    if (waiting) {
+      waiting.pending = false;
+      waiting.startedAt = Date.now();
+      waiting._lastTime = Date.now();
+      this.focusId = d.transferId;
+      WakeLock.acquire();
+      this._renderAll();
+      return;
+    }
+
+    this._pruneFinished();
+
     const state = {
       peerId: d.peerId,
       transferId: d.transferId,
@@ -707,23 +1142,25 @@ class TransfersPane {
       doneCount: 0,
       activeIndex: -1,
       startedAt: Date.now(),
+      pending: false,
       speed: null,
       peak: 0,
+      samples: [],
       done: false,
       error: null,
       _lastBytes: 0,
       _lastTime: Date.now(),
     };
-    this.current = state;
-    this.chart.reset();
+    this.byId.set(d.transferId, state);
+    this.focusId = d.transferId;
     WakeLock.acquire();
     this._renderAll();
     this.ui.switchTab("pane-transfers");
   }
 
   _onProgress(d) {
-    const t = this.current;
-    if (!t || t.transferId !== d.transferId || t.done) return;
+    const t = this.byId.get(d.transferId);
+    if (!t || t.done) return;
     t.bytes = Math.max(t.bytes, Math.min(d.bytes, t.totalSize));
 
     const now = Date.now();
@@ -733,26 +1170,32 @@ class TransfersPane {
       if (inst >= 0) {
         t.speed = t.speed === null ? inst : t.speed * 0.7 + inst * 0.3;
         t.peak = Math.max(t.peak, inst);
-        this.chart.push(inst);
-        $("tp-chart-max").textContent = `peak ${formatSpeed(t.peak)}`;
+        t.samples.push(inst);
+        if (t.samples.length > 150) t.samples.shift();
+        if (t === this.current) {
+          this.chart.show(t.samples);
+          $("tp-chart-max").textContent = `peak ${formatSpeed(t.peak)}`;
+        }
       }
       t._lastBytes = t.bytes;
       t._lastTime = now;
     }
-    this._renderProgress(t);
+    if (t === this.current) this._renderProgress(t);
+    else this._renderOthers();
   }
 
   _onFileActive(d) {
-    const t = this.current;
-    if (!t || t.transferId !== d.transferId) return;
+    const t = this.byId.get(d.transferId);
+    if (!t) return;
     t.activeIndex = d.index;
-    this._renderFiles(t);
+    if (t === this.current) this._renderFiles(t);
   }
 
   _onFileDone(d) {
-    const t = this.current;
-    if (!t || t.transferId !== d.transferId) return;
+    const t = this.byId.get(d.transferId);
+    if (!t) return;
     t.doneCount = Math.max(t.doneCount, d.index + 1);
+    if (t !== this.current) return;
     const row = document.querySelector(
       `#tp-files .transfer-file[data-index="${d.index}"]`,
     );
@@ -768,7 +1211,7 @@ class TransfersPane {
   }
 
   _onComplete(d) {
-    const t = this.current;
+    const t = this.byId.get(d.transferId);
 
     this.session.count++;
     if (d.direction === "send") {
@@ -778,9 +1221,7 @@ class TransfersPane {
       this.session.recvBytes += d.totalSize;
       this.session.recvFiles += d.fileCount;
     }
-    if (t && t.transferId === d.transferId) {
-      this.session.peak = Math.max(this.session.peak, t.peak || 0);
-    }
+    if (t) this.session.peak = Math.max(this.session.peak, t.peak || 0);
     this._renderSession();
 
     this._pushRecent({
@@ -792,14 +1233,18 @@ class TransfersPane {
       status: "done",
       at: Date.now(),
     });
-    WakeLock.release();
 
-    if (t && t.transferId === d.transferId) {
+    if (t) {
       t.done = true;
       t.bytes = t.totalSize;
       t.duration = d.duration;
-      this._renderAll();
+      if (t === this.current) this._renderAll();
+      else this.byId.delete(d.transferId);
     }
+    this._renderOthers();
+    // Other transfers may still be running; the screen has to stay awake
+    if (!this._liveCount()) WakeLock.release();
+
     if (this.ui.activeTab !== "pane-transfers") {
       const files = d.fileCount === 1 ? "1 file" : `${d.fileCount} files`;
       const name = this.ui.peerName(d.peerId);
@@ -813,24 +1258,30 @@ class TransfersPane {
   }
 
   _onCancelled(d) {
-    const t = this.current;
+    const t = this.byId.get(d.transferId);
     this.session.count++;
     this._renderSession();
     this._pushRecent({
       direction: d.direction,
       peerName: this.ui.peerName(d.peerId),
-      fileCount: t && t.transferId === d.transferId ? t.files.length : 0,
-      totalSize: t && t.transferId === d.transferId ? t.totalSize : 0,
+      fileCount: t ? t.files.length : 0,
+      totalSize: t ? t.totalSize : 0,
       duration: 0,
-      status: "failed",
+      status:
+        d.reason === "declined" || d.reason === "no-response"
+          ? "declined"
+          : "failed",
       at: Date.now(),
     });
-    WakeLock.release();
 
-    if (t && t.transferId === d.transferId) {
+    if (t) {
       t.error = d.reason || "cancelled";
-      this._renderAll();
+      if (t === this.current) this._renderAll();
+      else this.byId.delete(d.transferId);
     }
+    this._renderOthers();
+    if (!this._liveCount()) WakeLock.release();
+
     if (this.ui.activeTab !== "pane-transfers") {
       Toast.show(CANCEL_REASONS[d.reason] || CANCEL_REASONS.cancelled, {
         icon: "circle-alert",
@@ -841,19 +1292,38 @@ class TransfersPane {
 
   _tick() {
     const t = this.current;
-    if (!t || t.done || t.error) return;
+    if (!this._isLive(t)) return;
+    if (t.pending) {
+      this._renderProgress(t);
+      return;
+    }
     $("st-elapsed").textContent = formatDuration(Date.now() - t.startedAt);
     this._renderLiveInternals(t);
+    this._renderOthers();
   }
 
   redraw() {
     this.chart.draw();
   }
 
+  // Drops the focused transfer from the card. If others are still running,
+  // focus one of them rather than falling back to the empty state.
   _clearLive() {
-    this.current = null;
+    if (this.focusId) this.byId.delete(this.focusId);
+    this.focusId = null;
+    for (const [id, t] of this.byId) {
+      if (this._isLive(t)) {
+        this.focusId = id;
+        break;
+      }
+    }
+    if (this.focusId) {
+      this._renderAll();
+      return;
+    }
     $("tp-live").classList.add("hidden");
     $("tp-empty").classList.remove("hidden");
+    this._renderOthers();
   }
 
   _renderSession() {
@@ -878,14 +1348,19 @@ class TransfersPane {
     const badge = $("tp-state");
     badge.className = "state-badge";
     let label;
+    const refused = t.error === "declined" || t.error === "no-response";
     if (t.error) {
-      badge.classList.add("failed");
-      label = "Failed";
-      $("tp-live").setAttribute("data-state", "failed");
+      badge.classList.add(refused ? "queued" : "failed");
+      label = refused ? "Declined" : "Failed";
+      $("tp-live").setAttribute("data-state", refused ? "declined" : "failed");
     } else if (t.done) {
       badge.classList.add("done");
       label = t.direction === "send" ? "Sent" : "Received";
       $("tp-live").setAttribute("data-state", "done");
+    } else if (t.pending) {
+      badge.classList.add("queued");
+      label = "Waiting";
+      $("tp-live").setAttribute("data-state", "pending");
     } else {
       badge.classList.add(t.direction === "send" ? "sending" : "receiving");
       label = t.direction === "send" ? "Sending" : "Receiving";
@@ -896,18 +1371,20 @@ class TransfersPane {
     $("tp-title").textContent =
       `${t.direction === "send" ? "to" : "from"} ${this.ui.peerName(t.peerId)}`;
 
+    const files = t.files.length === 1 ? "1 file" : `${t.files.length} files`;
     if (t.error) {
       $("tp-sub").textContent =
         CANCEL_REASONS[t.error] || CANCEL_REASONS.cancelled;
+    } else if (t.pending) {
+      $("tp-sub").textContent =
+        `${files}, ${formatSize(t.totalSize)}. Nothing is sent until ${this.ui.peerName(t.peerId)} accepts.`;
     } else {
-      const files =
-        t.files.length === 1 ? "1 file" : `${t.files.length} files`;
       $("tp-sub").textContent = `${files}, ${formatSize(t.totalSize)} total`;
     }
 
     const action = $("tp-action");
     if (!t.done && !t.error) {
-      action.textContent = "Cancel";
+      action.textContent = t.pending ? "Withdraw" : "Cancel";
       action.classList.add("danger-text");
     } else if (t.done && t.direction === "receive") {
       action.textContent = "Open in Files";
@@ -917,17 +1394,116 @@ class TransfersPane {
       action.classList.remove("danger-text");
     }
 
+    this.chart.show(t.samples);
+    $("tp-chart-max").textContent = t.peak ? `peak ${formatSpeed(t.peak)}` : "";
+
     this._renderProgress(t);
     this._renderStats(t);
     this._renderFiles(t);
+    this._renderOthers();
+  }
+
+  // Compact rows for everything running that the card is not showing.
+  // Progress ticks several times a second, so rows are updated in place and
+  // only rebuilt when the set of transfers actually changes.
+  _renderOthers() {
+    const wrap = $("tp-others-wrap");
+    const list = $("tp-others");
+    const others = [];
+    this.byId.forEach((t, id) => {
+      if (id !== this.focusId && this._isLive(t)) others.push(t);
+    });
+
+    wrap.classList.toggle("hidden", others.length === 0);
+    $("tp-others-count").textContent = others.length;
+    if (!others.length) {
+      list.innerHTML = "";
+      this._otherIds = "";
+      return;
+    }
+
+    const ids = others.map((t) => t.transferId).join(",");
+    if (ids === this._otherIds) {
+      others.forEach((t) => {
+        const row = list.querySelector(
+          `[data-transfer-id="${t.transferId}"]`,
+        );
+        if (!row) return;
+        row.querySelector(".recent-meta").textContent = this._otherMeta(t);
+        row.querySelector(".tp-other-pct").textContent = this._otherPct(t);
+      });
+      return;
+    }
+    this._otherIds = ids;
+
+    list.innerHTML = "";
+    others.forEach((t) => {
+      const li = document.createElement("li");
+      li.className = "tp-other";
+      li.dataset.transferId = t.transferId;
+      li.setAttribute("role", "button");
+      li.setAttribute("tabindex", "0");
+      li.title = "Show this transfer";
+
+      li.appendChild(
+        makeIcon(
+          t.direction === "send" ? "circle-arrow-up" : "circle-arrow-down",
+        ),
+      );
+
+      const text = document.createElement("div");
+      text.className = "recent-text";
+      const title = document.createElement("span");
+      title.className = "recent-title";
+      const files =
+        t.files.length === 1 ? "1 file" : `${t.files.length} files`;
+      title.textContent = `${files} ${t.direction === "send" ? "to" : "from"} ${this.ui.peerName(t.peerId)}`;
+      const meta = document.createElement("span");
+      meta.className = "recent-meta";
+      meta.textContent = this._otherMeta(t);
+      text.append(title, meta);
+      li.appendChild(text);
+
+      const pct = document.createElement("span");
+      pct.className = "mono tp-other-pct";
+      pct.textContent = this._otherPct(t);
+      li.appendChild(pct);
+
+      li.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          this._focus(t.transferId);
+        }
+      });
+
+      list.appendChild(li);
+    });
+  }
+
+  _otherMeta(t) {
+    if (t.pending) return `Waiting to be accepted, ${formatSize(t.totalSize)}`;
+    return `${formatSize(t.bytes)} of ${formatSize(t.totalSize)}${
+      t.speed ? `, ${formatSpeed(t.speed)}` : ""
+    }`;
+  }
+
+  _otherPct(t) {
+    if (t.pending) return "--";
+    const pct = t.totalSize > 0 ? (t.bytes / t.totalSize) * 100 : 0;
+    return `${Math.floor(pct)}%`;
   }
 
   _renderProgress(t) {
     const pct = t.totalSize > 0 ? t.bytes / t.totalSize : t.done ? 1 : 0;
-    $("tp-percent").textContent = `${Math.floor(pct * 100)}%`;
+    $("tp-percent").textContent = t.pending
+      ? "--"
+      : `${Math.floor(pct * 100)}%`;
     $("tp-bar").style.width = `${pct * 100}%`;
 
-    if (t.error) {
+    if (t.pending) {
+      const left = Math.max(0, Math.ceil((t.expiresAt - Date.now()) / 1000));
+      $("tp-progress-stats").textContent = `Expires in ${left}s`;
+    } else if (t.error) {
       $("tp-progress-stats").textContent = "";
     } else if (t.done) {
       const dur = t.duration || Date.now() - t.startedAt;
@@ -1075,13 +1651,21 @@ class TransfersPane {
       li.appendChild(text);
 
       const badgeEl = document.createElement("span");
-      badgeEl.className = `state-badge ${r.status === "done" ? "done" : "failed"}`;
+      const tone =
+        r.status === "done"
+          ? "done"
+          : r.status === "declined"
+            ? "queued"
+            : "failed";
+      badgeEl.className = `state-badge ${tone}`;
       badgeEl.textContent =
         r.status === "done"
           ? r.direction === "send"
             ? "Sent"
             : "Received"
-          : "Failed";
+          : r.status === "declined"
+            ? "Declined"
+            : "Failed";
       li.appendChild(badgeEl);
 
       list.appendChild(li);
@@ -1134,6 +1718,26 @@ class FilesPane {
     this._renderBadge();
     this._renderGrid();
     if (this.view === "detail") this._updateNav();
+  }
+
+  byId(id) {
+    return this.files.find((f) => f.id === id) || null;
+  }
+
+  // Used by the Messages tab to jump from a file bubble to the full preview
+  openById(id) {
+    const index = this.files.findIndex((f) => f.id === id);
+    if (index < 0) return false;
+    this.ui.switchTab("pane-files");
+    this._openDetail(index);
+    return true;
+  }
+
+  saveById(id) {
+    const file = this.byId(id);
+    if (!file) return false;
+    this._download(file);
+    return true;
   }
 
   onShown() {
@@ -1347,6 +1951,13 @@ class FilesPane {
       return;
     }
     const total = this.files.reduce((s, f) => s + f.size, 0);
+    if (total >= 0xffffffff) {
+      Toast.show(
+        "This batch is too large for a single zip. Save the files one by one.",
+        { icon: "circle-alert", tone: "bad", duration: 5000 },
+      );
+      return;
+    }
     if (
       total > 512 * 1024 * 1024 &&
       !confirm(
@@ -1355,12 +1966,10 @@ class FilesPane {
     ) {
       return;
     }
-    Toast.show("Packaging files...", { icon: "archive" });
+    Toast.show("Packaging files", { icon: "archive" });
     try {
-      const JSZip = await loadJSZip();
-      const zip = new JSZip();
       const used = new Set();
-      this.files.forEach((f) => {
+      const entries = this.files.map((f) => {
         let name = f.name;
         let n = 1;
         while (used.has(name)) {
@@ -1372,22 +1981,19 @@ class FilesPane {
           n++;
         }
         used.add(name);
-        zip.file(name, f.blob);
+        return { name, blob: f.blob, date: f.receivedAt };
       });
-      const blob = await zip.generateAsync({
-        type: "blob",
-        compression: "STORE",
-      });
+      const blob = await buildZip(entries);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = "drpl-files.zip";
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (e) {
-      Toast.show("Could not build the zip. Save files one by one.", {
+      Toast.show("Could not build the zip. Save the files one by one.", {
         icon: "circle-alert",
         tone: "bad",
       });
@@ -1395,23 +2001,131 @@ class FilesPane {
   }
 }
 
-let jszipPromise = null;
-function loadJSZip() {
-  if (window.JSZip) return Promise.resolve(window.JSZip);
-  if (!jszipPromise) {
-    jszipPromise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
-      script.onload = () => resolve(window.JSZip);
-      script.onerror = () => {
-        jszipPromise = null;
-        reject(new Error("JSZip failed to load"));
-      };
-      document.head.appendChild(script);
-    });
+// ── Zip writer ───────────────────────────────────────────────────────────────
+
+/**
+ * Writes a stored (uncompressed) zip. Replaces the JSZip CDN load: these
+ * files already arrived over the network once, so pulling a library from a
+ * third party just to box them up would be the only outside request the app
+ * makes.
+ *
+ * Stored entries mean no compression work, which is the right trade here
+ * because the batch is usually photos and video that will not compress. File
+ * data is passed through as Blob slices, so only the checksum pass touches
+ * memory. Sizes are 32 bit, which is why the caller rejects batches at 4 GB
+ * rather than writing an archive no tool would open.
+ */
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let bit = 0; bit < 8; bit++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
   }
-  return jszipPromise;
+  return table;
+})();
+
+const CRC_CHUNK = 8 * 1024 * 1024;
+
+async function crc32OfBlob(blob) {
+  let state = -1;
+  for (let offset = 0; offset < blob.size; offset += CRC_CHUNK) {
+    const bytes = new Uint8Array(
+      await blob.slice(offset, offset + CRC_CHUNK).arrayBuffer(),
+    );
+    for (let i = 0; i < bytes.length; i++) {
+      state = (state >>> 8) ^ CRC_TABLE[(state ^ bytes[i]) & 0xff];
+    }
+  }
+  return (state ^ -1) >>> 0;
+}
+
+// MS-DOS packed date and time, which is what the zip format stores
+function dosDateTime(ts) {
+  const d = new Date(ts || Date.now());
+  const year = Math.max(1980, d.getFullYear());
+  return {
+    time:
+      ((d.getHours() << 11) |
+        (d.getMinutes() << 5) |
+        (Math.floor(d.getSeconds() / 2) & 0x1f)) &
+      0xffff,
+    date:
+      (((year - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xffff,
+  };
+}
+
+async function buildZip(entries) {
+  const encoder = new TextEncoder();
+  const parts = [];
+  const central = [];
+  let offset = 0;
+
+  for (const entry of entries) {
+    const nameBytes = encoder.encode(entry.name);
+    const crc = await crc32OfBlob(entry.blob);
+    const size = entry.blob.size;
+    const { time, date } = dosDateTime(entry.date);
+
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); // local file header
+    local.setUint16(4, 20, true); // version needed
+    local.setUint16(6, 0x0800, true); // UTF-8 file names
+    local.setUint16(8, 0, true); // stored, no compression
+    local.setUint16(10, time, true);
+    local.setUint16(12, date, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, size, true);
+    local.setUint32(22, size, true);
+    local.setUint16(26, nameBytes.length, true);
+    local.setUint16(28, 0, true); // no extra field
+
+    parts.push(local.buffer, nameBytes, entry.blob);
+
+    const dir = new DataView(new ArrayBuffer(46));
+    dir.setUint32(0, 0x02014b50, true); // central directory header
+    dir.setUint16(4, 20, true); // version made by
+    dir.setUint16(6, 20, true); // version needed
+    dir.setUint16(8, 0x0800, true);
+    dir.setUint16(10, 0, true);
+    dir.setUint16(12, time, true);
+    dir.setUint16(14, date, true);
+    dir.setUint32(16, crc, true);
+    dir.setUint32(20, size, true);
+    dir.setUint32(24, size, true);
+    dir.setUint16(28, nameBytes.length, true);
+    dir.setUint16(30, 0, true); // extra
+    dir.setUint16(32, 0, true); // comment
+    dir.setUint16(34, 0, true); // disk number
+    dir.setUint16(36, 0, true); // internal attributes
+    dir.setUint32(38, 0, true); // external attributes
+    dir.setUint32(42, offset, true); // offset of local header
+    central.push(dir.buffer, nameBytes);
+
+    offset += 30 + nameBytes.length + size;
+  }
+
+  const centralOffset = offset;
+  const centralSize = central.reduce(
+    (sum, part) => sum + (part.byteLength || part.length),
+    0,
+  );
+
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); // end of central directory
+  end.setUint16(4, 0, true); // this disk
+  end.setUint16(6, 0, true); // disk with central directory
+  end.setUint16(8, entries.length, true);
+  end.setUint16(10, entries.length, true);
+  end.setUint32(12, centralSize, true);
+  end.setUint32(16, centralOffset, true);
+  end.setUint16(20, 0, true); // no comment
+
+  return new Blob([...parts, ...central, end.buffer], {
+    type: "application/zip",
+  });
 }
 
 // ── Messages pane ────────────────────────────────────────────────────────────
@@ -1428,6 +2142,10 @@ class MessagesPane {
     this.unread = {};
     this.activePeer = null;
     this._saveTimer = null;
+    // Files this device sent, kept for the session so their bubbles stay
+    // actionable. Not persisted: a Blob cannot go into localStorage.
+    this.sentFiles = new Map();
+    this._sentSeq = 0;
 
     this._timeline = $("mp-timeline");
     this._input = $("mp-input");
@@ -1444,16 +2162,10 @@ class MessagesPane {
       }
     });
     this._input.addEventListener("input", () => this._resize());
+    this._input.addEventListener("paste", (e) => this._onPaste(e));
     $("mp-attach").addEventListener("click", () => {
-      if (this.activePeer === EVERYONE) {
-        this.ui.pickAndSendToAll();
-      } else if (this.activePeer) {
-        if (!this.ui.peerInfo[this.activePeer]) {
-          Toast.show("That device is offline right now", { icon: "wifi-off" });
-          return;
-        }
-        this.ui.pickAndSend(this.activePeer);
-      }
+      if (!this.activePeer) return;
+      this.ui.sendFilesFromPicker(this.activePeer);
     });
 
     Events.on("text-received", (e) => {
@@ -1469,6 +2181,9 @@ class MessagesPane {
       });
     });
 
+    Events.on("text-sent", (e) => this._onTextSent(e.detail));
+    Events.on("text-delivered", (e) => this._onTextDelivered(e.detail));
+
     // File activity shows up in the conversation timeline
     Events.on("files-selected", (e) => {
       const to = e.detail.to;
@@ -1476,25 +2191,9 @@ class MessagesPane {
         this._suppressLog.delete(to);
         return;
       }
-      Array.from(e.detail.files).forEach((f) => {
-        this._addEntry(
-          to,
-          {
-            kind: "file",
-            sent: true,
-            time: Date.now(),
-            name: f.name,
-            size: f.size,
-            mime: f.type || "application/octet-stream",
-            url:
-              f.type && f.type.startsWith("image/")
-                ? URL.createObjectURL(f)
-                : null,
-          },
-          { silent: true },
-        );
-      });
+      Array.from(e.detail.files).forEach((f) => this._logSentFile(to, f));
     });
+
     Events.on("file-received", (e) => {
       const d = e.detail;
       this.names[d.sender] = this.ui.peerName(d.sender);
@@ -1504,6 +2203,7 @@ class MessagesPane {
           kind: "file",
           sent: false,
           time: Date.now(),
+          fileId: d.id,
           name: d.name,
           size: d.size,
           mime: d.mime,
@@ -1517,28 +2217,97 @@ class MessagesPane {
     });
   }
 
+  // Sent files stay reachable for the session so the bubble can preview and
+  // save them, the same as a received one.
+  _logSentFile(key, file) {
+    const id = `s${Date.now().toString(36)}-${this._sentSeq++}`;
+    this.sentFiles.set(id, file);
+    this._addEntry(
+      key,
+      {
+        kind: "file",
+        sent: true,
+        time: Date.now(),
+        sentFileId: id,
+        name: file.name,
+        size: file.size,
+        mime: file.type || "application/octet-stream",
+        url:
+          file.type && file.type.startsWith("image/")
+            ? URL.createObjectURL(file)
+            : null,
+      },
+      { silent: true },
+    );
+  }
+
   // Group file sends log once under Everyone; the per-peer events that
   // follow are suppressed so the timeline shows one entry per file
   logGroupFiles(files, peerIds) {
     this._suppressLog = new Set(peerIds);
-    Array.from(files).forEach((f) => {
-      this._addEntry(
-        EVERYONE,
-        {
-          kind: "file",
-          sent: true,
-          time: Date.now(),
-          name: f.name,
-          size: f.size,
-          mime: f.type || "application/octet-stream",
-          url:
-            f.type && f.type.startsWith("image/")
-              ? URL.createObjectURL(f)
-              : null,
-        },
-        { silent: true },
-      );
-    });
+    Array.from(files).forEach((f) => this._logSentFile(EVERYONE, f));
+  }
+
+  // Pasting an image into the composer sends it, which is the fastest way to
+  // move a screenshot between two machines.
+  _onPaste(e) {
+    if (!this.activePeer || !e.clipboardData) return;
+    const files = Array.from(e.clipboardData.files || []);
+    if (!files.length) return;
+    e.preventDefault();
+    const named = files.map((f) =>
+      f.name && f.name !== "image.png"
+        ? f
+        : new File([f], `pasted-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${(f.type.split("/")[1] || "png")}`, {
+            type: f.type,
+          }),
+    );
+    this.ui.sendFiles(named, this.activePeer);
+  }
+
+  _onTextSent(d) {
+    if (!d || !d.localId) return;
+    const entry = this._findByLocalId(d.localId);
+    if (!entry) return;
+    entry.messageIds = d.messageIds;
+    entry.recipients = d.recipients;
+    entry.status = "sent";
+    this._refreshEntry(entry);
+  }
+
+  _onTextDelivered(d) {
+    if (!d || !d.id) return;
+    for (const key of Object.keys(this.convos)) {
+      for (const entry of this.convos[key]) {
+        if (entry.messageIds && entry.messageIds.includes(d.id)) {
+          entry.delivered = (entry.delivered || 0) + 1;
+          if (entry.delivered >= (entry.recipients || 1)) {
+            entry.status = "delivered";
+          }
+          this._refreshEntry(entry);
+          return;
+        }
+      }
+    }
+  }
+
+  _findByLocalId(localId) {
+    for (const key of Object.keys(this.convos)) {
+      const found = this.convos[key].find((e) => e.localId === localId);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // Re-render just the row that changed rather than the whole timeline
+  _refreshEntry(entry) {
+    if (!entry.localId) return;
+    const row = this._timeline.querySelector(
+      `[data-local-id="${entry.localId}"]`,
+    );
+    if (!row) return;
+    const status = row.querySelector(".chat-status");
+    if (status) this._paintStatus(status, entry);
   }
 
   // ---- persistence (text and file metadata; blobs are not persisted) ----
@@ -1562,6 +2331,11 @@ class MessagesPane {
           mime: e.fm,
           url: null,
           senderName: e.n,
+          // Blobs cannot be stored, so a reloaded file entry keeps its
+          // details but loses its actions until the file is sent again.
+          status: e.st,
+          recipients: e.rc,
+          delivered: e.dv,
         }));
       }
     } catch (e) {
@@ -1585,7 +2359,16 @@ class MessagesPane {
                 fm: e.mime,
                 n: e.senderName,
               }
-            : { k: "t", s: e.sent ? 1 : 0, t: e.time, x: e.text, n: e.senderName },
+            : {
+                k: "t",
+                s: e.sent ? 1 : 0,
+                t: e.time,
+                x: e.text,
+                n: e.senderName,
+                st: e.status,
+                rc: e.recipients,
+                dv: e.delivered,
+              },
         );
         data.convos[key] = { name: this.names[key], entries };
       }
@@ -1681,26 +2464,34 @@ class MessagesPane {
     const text = this._input.value.trim();
     if (!text || !this.activePeer) return;
 
-    if (this.activePeer === EVERYONE) {
-      if (!Object.keys(this.ui.peerInfo).length) {
-        Toast.show("No devices to message right now", { icon: "wifi-off" });
-        return;
-      }
-      Events.fire("send-text", { to: "*", text });
-    } else {
-      if (!this.ui.peerInfo[this.activePeer]) {
-        Toast.show("That device is offline right now", { icon: "wifi-off" });
-        return;
-      }
-      Events.fire("send-text", { to: this.activePeer, text });
+    const toEveryone = this.activePeer === EVERYONE;
+    if (toEveryone && !Object.keys(this.ui.peerInfo).length) {
+      Toast.show("No devices to message right now", { icon: "wifi-off" });
+      return;
+    }
+    if (!toEveryone && !this.ui.peerInfo[this.activePeer]) {
+      Toast.show("That device is offline right now", { icon: "wifi-off" });
+      return;
     }
 
+    // The entry has to exist before the send fires, because the acknowledgement
+    // that flips it to delivered can come back in the same tick.
+    const localId = `l${Date.now().toString(36)}-${this._sentSeq++}`;
     this._addEntry(this.activePeer, {
       kind: "text",
       sent: true,
       time: Date.now(),
       text,
+      localId,
+      status: "sending",
     });
+
+    Events.fire("send-text", {
+      to: toEveryone ? "*" : this.activePeer,
+      text,
+      localId,
+    });
+
     this._input.value = "";
     this._resize();
   }
@@ -1790,26 +2581,22 @@ class MessagesPane {
       const empty = document.createElement("div");
       empty.className = "chat-empty";
       const p = document.createElement("p");
-      if (this.activePeer === EVERYONE) {
-        p.appendChild(document.createTextNode("Message "));
-        const strong = document.createElement("strong");
-        strong.textContent = "every device on this network";
-        p.appendChild(strong);
-        p.appendChild(
-          document.createTextNode(" at once. Replies come back here too."),
-        );
-      } else {
-        p.appendChild(document.createTextNode("Message "));
-        const strong = document.createElement("strong");
-        strong.textContent = this.nameFor(this.activePeer);
-        p.appendChild(strong);
-        p.appendChild(
-          document.createTextNode(
-            ". Text, links and files stay between your devices.",
-          ),
-        );
-      }
+      const target =
+        this.activePeer === EVERYONE
+          ? "every device on this network"
+          : this.nameFor(this.activePeer);
+      p.appendChild(document.createTextNode("Send a link, a note or a file to "));
+      const strong = document.createElement("strong");
+      strong.textContent = target;
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode("."));
       empty.appendChild(p);
+
+      const hint = document.createElement("p");
+      hint.className = "chat-empty-hint";
+      hint.textContent =
+        "Anything that arrives can be copied with one click. Paste an image here to send it straight away.";
+      empty.appendChild(hint);
       this._timeline.appendChild(empty);
       return;
     }
@@ -1836,6 +2623,7 @@ class MessagesPane {
   _appendEntry(msg) {
     const row = document.createElement("div");
     row.className = `chat-row ${msg.sent ? "sent" : "received"}`;
+    if (msg.localId) row.dataset.localId = msg.localId;
 
     // In the group conversation, name who said it
     if (!msg.sent && this.activePeer === EVERYONE && msg.senderName) {
@@ -1845,80 +2633,148 @@ class MessagesPane {
       row.appendChild(sender);
     }
 
-    let bubble;
-    if (msg.kind === "file") {
-      bubble = document.createElement("div");
-      bubble.className = "chat-file";
-      if (msg.url) {
-        const img = document.createElement("img");
-        img.className = "chat-file-thumb";
-        img.src = msg.url;
-        img.alt = msg.name;
-        bubble.appendChild(img);
-      } else {
-        bubble.appendChild(
-          makeIcon(fileIconName(msg.mime), "icon file-type-icon"),
-        );
-        const text = document.createElement("div");
-        text.className = "chat-file-text";
-        const name = document.createElement("div");
-        name.className = "chat-file-name";
-        name.textContent = msg.name;
-        const size = document.createElement("div");
-        size.className = "chat-file-size";
-        size.textContent = formatSize(msg.size);
-        text.append(name, size);
-        bubble.appendChild(text);
-      }
-    } else {
-      bubble = document.createElement("div");
-      bubble.className = "chat-bubble";
-      this._renderContent(bubble, msg.text);
-    }
+    const bubble =
+      msg.kind === "file" ? this._buildFile(msg) : this._buildText(msg);
+    row.appendChild(bubble);
 
-    const time = document.createElement("div");
+    const foot = document.createElement("div");
+    foot.className = "chat-foot";
+    const time = document.createElement("span");
     time.className = "chat-time";
     time.textContent = formatClock(msg.time);
+    foot.appendChild(time);
+    if (msg.sent && msg.kind === "text") {
+      const status = document.createElement("span");
+      status.className = "chat-status";
+      this._paintStatus(status, msg);
+      foot.appendChild(status);
+    }
+    row.appendChild(foot);
 
-    row.append(bubble, time);
     this._timeline.appendChild(row);
     Motion.pulse(bubble);
   }
 
-  _renderContent(bubble, text) {
-    const trimmed = text.trim();
-
-    if (isURL(trimmed) && isImageURL(trimmed)) {
-      bubble.classList.add("bubble-image");
-      const img = document.createElement("img");
-      img.src = trimmed;
-      img.alt = "Image";
-      img.className = "chat-inline-image";
-      img.addEventListener("click", () =>
-        window.open(trimmed, "_blank", "noopener,noreferrer"),
-      );
-      img.addEventListener("error", () => {
-        bubble.classList.remove("bubble-image");
-        bubble.innerHTML = "";
-        this._appendLink(bubble, trimmed);
-      });
-      bubble.appendChild(img);
+  // Delivery state comes from the receiver acknowledging the message, so this
+  // reflects what actually arrived rather than what was handed to the socket.
+  _paintStatus(el, msg) {
+    el.innerHTML = "";
+    el.title = "";
+    if (msg.status === "delivered") {
+      el.appendChild(makeIcon("check-check", "icon chat-status-icon"));
+      el.title = "Delivered";
       return;
     }
+    if (msg.status === "sent") {
+      const total = msg.recipients || 1;
+      if (total > 1) {
+        const label = document.createElement("span");
+        label.textContent = `${msg.delivered || 0}/${total}`;
+        el.appendChild(label);
+        el.title = `Delivered to ${msg.delivered || 0} of ${total} devices`;
+      } else {
+        el.appendChild(makeIcon("check", "icon chat-status-icon"));
+        el.title = "Sent";
+      }
+      return;
+    }
+    el.appendChild(makeIcon("clock", "icon chat-status-icon"));
+    el.title = "Sending";
+  }
+
+  // ---- text bubbles ----
+
+  _buildText(msg) {
+    const trimmed = (msg.text || "").trim();
+    const bubble = document.createElement("div");
+    bubble.className = "chat-bubble";
 
     if (isURL(trimmed)) {
-      this._appendLink(bubble, trimmed);
-      return;
+      bubble.classList.add("bubble-link");
+      bubble.appendChild(this._buildLinkCard(trimmed));
+      return bubble;
     }
 
+    const body = document.createElement("div");
+    body.className = "chat-text";
+    this._renderLinkedText(body, trimmed);
+    bubble.appendChild(body);
+    bubble.appendChild(
+      this._actionBar([
+        {
+          icon: "copy",
+          label: "Copy message",
+          run: () => this._copyText(trimmed),
+        },
+      ]),
+    );
+
+    // Clicking anywhere that is not a link copies, which is the thing you
+    // almost always want a message on another device for. Selecting text by
+    // hand still works: a click that ends a selection is not a copy.
+    bubble.addEventListener("click", (e) => {
+      if (e.target.closest("a") || e.target.closest(".chat-actions")) return;
+      if (String(window.getSelection() || "").length) return;
+      this._copyText(trimmed);
+    });
+    bubble.title = "Click to copy";
+    return bubble;
+  }
+
+  _buildLinkCard(url) {
+    const href = url.startsWith("http") ? url : `https://${url}`;
+    const card = document.createElement("div");
+    card.className = "link-card";
+
+    let host = url;
+    try {
+      host = new URL(href).host.replace(/^www\./, "");
+    } catch (e) {
+      /* keep the raw string */
+    }
+
+    const icon = document.createElement("span");
+    icon.className = "link-card-icon";
+    icon.appendChild(makeIcon("link"));
+
+    const text = document.createElement("div");
+    text.className = "link-card-text";
+    const hostEl = document.createElement("div");
+    hostEl.className = "link-card-host";
+    hostEl.textContent = host;
+    const urlEl = document.createElement("div");
+    urlEl.className = "link-card-url";
+    urlEl.textContent = url;
+    text.append(hostEl, urlEl);
+
+    card.append(icon, text);
+    card.appendChild(
+      this._actionBar([
+        { icon: "copy", label: "Copy link", run: () => this._copyText(url) },
+        {
+          icon: "external-link",
+          label: "Open link",
+          run: () => window.open(href, "_blank", "noopener,noreferrer"),
+        },
+      ]),
+    );
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".chat-actions")) return;
+      this._copyText(url);
+    });
+    card.title = "Click to copy, or use Open";
+    return card;
+  }
+
+  // Links inside a longer message stay clickable; the rest is plain text
+  _renderLinkedText(host, text) {
     const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
     let lastIndex = 0;
     let match;
-    const frag = document.createDocumentFragment();
-    while ((match = urlPattern.exec(trimmed)) !== null) {
+    while ((match = urlPattern.exec(text)) !== null) {
       if (match.index > lastIndex) {
-        frag.appendChild(
-          document.createTextNode(trimmed.slice(lastIndex, match.index)),
+        host.appendChild(
+          document.createTextNode(text.slice(lastIndex, match.index)),
         );
       }
       const a = document.createElement("a");
@@ -1926,26 +2782,167 @@ class MessagesPane {
       a.target = "_blank";
       a.rel = "noopener noreferrer";
       a.textContent = match[0];
-      frag.appendChild(a);
+      host.appendChild(a);
       lastIndex = match.index + match[0].length;
     }
-    if (lastIndex < trimmed.length) {
-      frag.appendChild(document.createTextNode(trimmed.slice(lastIndex)));
+    if (lastIndex < text.length) {
+      host.appendChild(document.createTextNode(text.slice(lastIndex)));
     }
-    bubble.appendChild(frag);
   }
 
-  _appendLink(bubble, url) {
-    bubble.classList.add("bubble-link");
+  // ---- file bubbles ----
+
+  _buildFile(msg) {
+    const bubble = document.createElement("div");
+    bubble.className = "chat-file";
+    const isImage = (msg.mime || "").startsWith("image/");
+    const available = this._blobFor(msg) !== null;
+
+    if (isImage && msg.url) {
+      bubble.classList.add("chat-file-image");
+      const img = document.createElement("img");
+      img.className = "chat-file-thumb";
+      img.src = msg.url;
+      img.alt = msg.name;
+      img.loading = "lazy";
+      bubble.appendChild(img);
+      const caption = document.createElement("div");
+      caption.className = "chat-file-caption";
+      caption.textContent = `${msg.name}, ${formatSize(msg.size)}`;
+      bubble.appendChild(caption);
+    } else {
+      bubble.appendChild(
+        makeIcon(fileIconName(msg.mime), "icon file-type-icon"),
+      );
+      const text = document.createElement("div");
+      text.className = "chat-file-text";
+      const name = document.createElement("div");
+      name.className = "chat-file-name";
+      name.textContent = msg.name;
+      const size = document.createElement("div");
+      size.className = "chat-file-size";
+      size.textContent = available
+        ? formatSize(msg.size)
+        : `${formatSize(msg.size)}, no longer held on this device`;
+      text.append(name, size);
+      bubble.appendChild(text);
+    }
+
+    const actions = [];
+    if (available && isImage) {
+      actions.push({
+        icon: "copy",
+        label: "Copy image",
+        run: () => this._copyImage(msg),
+      });
+    }
+    if (available) {
+      actions.push({
+        icon: "eye",
+        label: "Preview",
+        run: () => this._previewFile(msg),
+      });
+      actions.push({
+        icon: "download",
+        label: `Save ${msg.name}`,
+        run: () => this._saveFile(msg),
+      });
+    }
+    if (actions.length) bubble.appendChild(this._actionBar(actions));
+
+    if (available && isImage) {
+      bubble.addEventListener("click", (e) => {
+        if (e.target.closest(".chat-actions")) return;
+        this._copyImage(msg);
+      });
+      bubble.title = "Click to copy the image";
+    } else if (available) {
+      bubble.addEventListener("click", (e) => {
+        if (e.target.closest(".chat-actions")) return;
+        this._previewFile(msg);
+      });
+      bubble.title = "Click to preview";
+    }
+
+    return bubble;
+  }
+
+  _actionBar(actions) {
+    const bar = document.createElement("div");
+    bar.className = "chat-actions";
+    actions.forEach((action) => {
+      const btn = document.createElement("button");
+      btn.className = "icon-button sm";
+      btn.title = action.label;
+      btn.setAttribute("aria-label", action.label);
+      btn.appendChild(makeIcon(action.icon));
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        action.run();
+      });
+      bar.appendChild(btn);
+    });
+    return bar;
+  }
+
+  // A received file lives in the Files tab; a sent one is held here for the
+  // session. Reloading the page drops both, and the bubble says so.
+  _blobFor(msg) {
+    if (msg.fileId) {
+      const file = this.ui.files.byId(msg.fileId);
+      return file ? file.blob : null;
+    }
+    if (msg.sentFileId) return this.sentFiles.get(msg.sentFileId) || null;
+    return null;
+  }
+
+  async _copyText(text) {
+    const ok = await Clipboard.writeText(text);
+    Toast.show(
+      ok ? "Copied to clipboard" : "Could not copy. Select the text to copy it",
+      {
+        icon: ok ? "check" : "circle-alert",
+        tone: ok ? "ok" : "bad",
+        duration: 1600,
+      },
+    );
+  }
+
+  async _copyImage(msg) {
+    const blob = this._blobFor(msg);
+    if (!blob) return;
+    const ok = await Clipboard.writeImage(blob, msg.mime);
+    Toast.show(
+      ok ? "Image copied to clipboard" : "This browser will not copy images, use Save",
+      {
+        icon: ok ? "check" : "circle-alert",
+        tone: ok ? "ok" : "bad",
+        duration: 1800,
+      },
+    );
+  }
+
+  _previewFile(msg) {
+    if (msg.fileId && this.ui.files.openById(msg.fileId)) return;
+    const blob = this._blobFor(msg);
+    if (!blob) return;
+    // A file this device sent is not in the Files tab, so open it directly
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  _saveFile(msg) {
+    const blob = this._blobFor(msg);
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url.startsWith("http") ? url : `https://${url}`;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    a.appendChild(makeIcon("link"));
-    const span = document.createElement("span");
-    span.textContent = url;
-    a.appendChild(span);
-    bubble.appendChild(a);
+    a.href = url;
+    a.download = msg.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
   _scrollBottom() {
@@ -1960,5 +2957,5 @@ class MessagesPane {
 document.addEventListener("DOMContentLoaded", () => {
   window.drplUI = new DrplUI();
   window.NotificationManager.init();
-  new BackgroundAnimation();
+  window.drplBackground = new BackgroundAnimation();
 });

@@ -62,10 +62,16 @@ probes of snapdrop.net and pairdrop.net) at the time of writing.
   threshold). No stop-and-wait round trips.
 - Negotiated chunk size: 64 KiB baseline, raised to 256 KiB when
   `RTCSctpTransport.maxMessageSize` allows (Chromium to Chromium).
-- Session-level protocol (`transfer-start` / `file-start` / chunks /
-  `file-end` / `transfer-received`) with cancel in both directions and
-  per-file acknowledgements, so both sides always reach a terminal state
-  (sent, received, failed) instead of spinning.
+- Session-level protocol (`transfer-request` / `transfer-response` /
+  `transfer-start` / `file-start` / chunks / `file-end` /
+  `transfer-received`) with cancel in both directions and per-file
+  acknowledgements, so both sides always reach a terminal state (sent,
+  received, declined, failed) instead of spinning.
+- Consent before bytes move, like PairDrop, with two differences: the
+  request expires after 60 seconds and auto-declines, so a sender is never
+  left waiting on a device nobody is looking at; and acceptance is enforced
+  on the receiving side rather than assumed, so a `transfer-start` whose id
+  was never accepted is refused instead of being written to disk.
 - Zombie-connection defense in depth: server protocol-level pings (browsers
   answer them even when a tab is frozen), server sweep with socket
   termination, client watchdog that detects half-open sockets, reconnect
@@ -157,22 +163,29 @@ should expect the prompt; surface a friendly hint when connections fail.
    Safari 26) via a worker, removing the RAM ceiling for multi-GB files;
    pair with `showSaveFilePicker` streaming on Chromium.
 2. Transfer resume (chunk-offset acks) to survive iOS suspensions.
-3. Optional transfer request/accept consent step, like PairDrop.
-4. A Cloudflare Workers + Durable Objects port of the signaling server for
+3. A Cloudflare Workers + Durable Objects port of the signaling server for
    zero-maintenance hosting.
+4. Device pairing across networks, the one PairDrop feature drpl still has
+   no answer for. It needs TURN, which means bandwidth cost.
 
-## 3. Libraries and assets (all verified against CDNs)
+## 3. Libraries and assets
+
+drpl.co makes no requests to any third party at runtime. Everything below
+ships with the app.
 
 | Choice | Version | Cost | Why |
 | --- | --- | --- | --- |
-| GSAP (jsdelivr, pinned) | 3.15.0 | 27.7 KB gz | Free including all plugins since the Webflow acquisition (May 2025). Not vendored: its "no charge" license is not MIT, so it stays a CDN reference. Loaded `async`; every animation has a CSS or instant fallback. |
-| Toastify-js (cdnjs) | 1.12.0 | ~5 KB | Smallest vanilla toast lib that themes cleanly. Its stock stylesheet ships a gradient, so it is not loaded; toast appearance lives in styles.css. Built-in fallback toast if the CDN is blocked. |
 | Lucide icons | lucide-static 1.25.0 | ~10 KB inlined | ISC license. Inlined as an SVG symbol sprite in index.html: zero requests, no flash of missing icons, styleable via currentColor. Full UMD build would cost 96 KB. GitHub glyph comes from Simple Icons (Lucide removed brand icons in v1). |
 | Figtree font | Fontsource variable, latin | 20 KB self-hosted | The face used by the reference aesthetic (it is Astryx neutral's face). Self-hosted because cache partitioning makes shared font CDNs pointless and Google Fonts embeds have GDPR problems. |
-| JSZip (cdnjs, lazy) | 3.10.1 | loaded on demand | Only fetched when "Save all" zips multiple files; STORE mode (no compression) for speed. |
+| Animation | none | 0 | CSS keyframes applied as a class for one run. GSAP was 27.7 KB gz from jsdelivr for five entrance effects, all of which were already disabled under prefers-reduced-motion. |
+| Toasts | none | 0 | ~40 lines in ui.js. Toastify-js was ~5 KB from cdnjs and its stock stylesheet was never loaded anyway, so only the show/dismiss logic was ever used. |
+| Zip writing | none | 0 | ~90 lines in ui.js writing stored entries with a CRC32 pass. JSZip was 3.10.1 from cdnjs, loaded on demand, and only ever used in STORE mode. Validated against Windows Expand-Archive including UTF-8 file names. |
 
-Removed: Font Awesome (was ~100 KB+ of CSS/fonts for a handful of glyphs),
-eagerly-loaded JSZip.
+Removed over time: Font Awesome (~100 KB+ of CSS and fonts for a handful of
+glyphs), then every remaining CDN reference. The reason is not only weight:
+a request to a CDN tells that CDN who is using drpl and from where, which
+undercuts the point of a tool that otherwise never phones home. It also
+removes a class of failure where a blocked or slow CDN degrades the app.
 
 ### Astryx (Meta's design system)
 

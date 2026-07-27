@@ -109,22 +109,29 @@ real signaling connection and the text names the state when offline.
   values. Every value is read from the live transfer or the network layer
   (chunk size, transport, buffered bytes). If a value is unknown, show "-",
   never invent one.
-- **Toasts**: Toastify-js (CDN, ~5 KB) with our own CSS - its stock
-  stylesheet ships a gradient and is not loaded. Surface background,
-  hairline border, small icon (ok/bad tint when meaningful), muted text.
-  Falls back to a built-in single toast if the CDN is blocked.
+- **Toasts**: built in, stacking, capped at four so a burst cannot bury the
+  app. Surface background, hairline border, small icon (ok/bad tint when
+  meaningful), muted text. Click one to dismiss it early.
+- **Chat bubbles**: the whole bubble is a copy target, with explicit copy,
+  preview, open and save buttons revealed on hover and always visible on
+  touch. Text stays selectable, and a click that ends a selection does not
+  copy over the top of it.
+- **Consent dialog**: shown for every incoming transfer. States who is
+  sending, what, and how large, with a live countdown badge that turns
+  `--bad-text` in the last ten seconds. Declines itself when it expires.
 - **Empty states**: dashed hairline border, small icon, 14/600 title, one
   muted line. All four view states (loading, empty, error, populated) exist
   for every pane.
 
 ## Motion
 
-GSAP (CDN, pinned) drives entrances; everything falls back to CSS. Rules:
+CSS keyframes, applied as a class for the length of one run and then
+removed (`Motion` in `ui.js`). No animation library. Rules:
 
 - Motion only on real state change or user action. Nothing animates on
   scroll; nothing loops except the spinner and the live chart.
-- Durations 150-350ms, `power2.out` in, `power2.in` out. No bounce on
-  layout; small `back.out` only for state check-pops.
+- Durations 150-350ms on the shared `--ease`. No bounce on layout; a small
+  overshoot only for state check-pops.
 - Never animate a hidden tab (rAF and timers are throttled there); apply
   final state instantly instead. `prefers-reduced-motion` disables all of it.
 

@@ -7,7 +7,7 @@
 
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta
       name="theme-color"
@@ -90,21 +90,7 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="styles/styles.css?v=2.3.0" />
-
-    <!-- GSAP powers the animations, Toastify renders toasts. The UI works
-         without either - if a CDN is blocked or slow, everything falls back
-         to CSS transitions and a built-in toast. async so they never delay
-         the page itself. Toastify's stock stylesheet is intentionally not
-         loaded; toasts are styled in styles.css. -->
-    <script
-      async
-      src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"
-    ></script>
-    <script
-      async
-      src="https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.js"
-    ></script>
+    <link rel="stylesheet" href="styles/styles.css?v=2.4.0" />
   </head>
   <body>
     <!-- Lucide icons (ISC license, lucide.dev) inlined as a sprite: zero requests, no flash of missing icons -->
@@ -566,13 +552,93 @@
         <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
         <circle cx="9" cy="7" r="4" />
       </symbol>
+      <symbol
+        id="i-copy"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+      </symbol>
+      <symbol
+        id="i-external-link"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 3h6v6" />
+        <path d="M10 14 21 3" />
+        <path
+          d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+        />
+      </symbol>
+      <symbol
+        id="i-eye"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+        />
+        <circle cx="12" cy="12" r="3" />
+      </symbol>
+      <symbol
+        id="i-clock"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </symbol>
+      <symbol
+        id="i-shield"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+        />
+      </symbol>
+      <symbol
+        id="i-send"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"
+        />
+        <path d="m21.854 2.147-10.94 10.939" />
+      </symbol>
     </svg>
 
     <canvas id="background-canvas" aria-hidden="true"></canvas>
 
     <div class="app">
       <header class="topbar">
-        <span class="brand">drpl.co<span class="version"> v2.3.0</span> </span>
+        <span class="brand">drpl.co<span class="version"> v2.4.0</span> </span>
         <div class="topbar-right">
           <button
             id="theme-toggle"
@@ -680,6 +746,16 @@
           <section id="pane-transfers" class="pane active" role="tabpanel">
             <div class="tp-grid">
               <div class="tp-main">
+                <!-- Transfers running alongside the one shown below; click to
+                     bring one into focus. Hidden while only one is active. -->
+                <div id="tp-others-wrap" class="tp-others-wrap hidden">
+                  <div class="section-head">
+                    <h3>Also running</h3>
+                    <span class="count-badge" id="tp-others-count">0</span>
+                  </div>
+                  <ul class="tp-others" id="tp-others"></ul>
+                </div>
+
                 <div id="tp-empty" class="pane-empty">
                   <svg class="icon" aria-hidden="true">
                     <use href="#i-circle-arrow-up" />
@@ -907,7 +983,7 @@
                 <textarea
                   id="mp-input"
                   class="mp-input"
-                  placeholder="Message"
+                  placeholder="Message, link, or paste an image"
                   rows="1"
                   maxlength="5000"
                 ></textarea>
@@ -940,9 +1016,16 @@
         <div class="about-body">
           <p>
             Open drpl.co on two devices connected to the same network. They find
-            each other automatically. Click a device to send files or messages;
-            everything moves directly between the devices, encrypted, without
-            touching a server.
+            each other automatically. Click a device to send files or messages.
+            The receiving device has to accept before anything is sent, and the
+            files then move directly between the two devices, encrypted.
+          </p>
+          <p>
+            The server introduces the devices to each other and gets out of the
+            way. The one exception is when a firewall or VPN blocks the direct
+            connection: drpl then relays the data through the server so the
+            transfer still works, and says so in the Transport row while it
+            happens.
           </p>
         </div>
 
@@ -954,6 +1037,10 @@
                 <tr>
                   <th>Method</th>
                   <td>WebRTC data channel, device to device</td>
+                </tr>
+                <tr>
+                  <th>Consent</th>
+                  <td>Receiver accepts first, or it expires after 60 seconds</td>
                 </tr>
                 <tr>
                   <th>Encryption</th>
@@ -980,11 +1067,16 @@
               <tbody>
                 <tr>
                   <th>Files</th>
-                  <td>Never uploaded, never stored</td>
+                  <td>Never stored, and never sent to the server at all
+                    unless the relay fallback is in use</td>
                 </tr>
                 <tr>
                   <th>Server role</th>
                   <td>Discovery and connection setup only</td>
+                </tr>
+                <tr>
+                  <th>Third parties</th>
+                  <td>None. No CDN, no analytics, no fonts loaded remotely</td>
                 </tr>
                 <tr>
                   <th>Discovery</th>
@@ -1015,7 +1107,7 @@
                 </tr>
                 <tr>
                   <th>Version</th>
-                  <td class="mono align-end">2.3.0</td>
+                  <td class="mono align-end">2.4.0</td>
                 </tr>
                 <tr>
                   <th>Source</th>
@@ -1059,9 +1151,49 @@
       </div>
     </div>
 
-    <!-- Fallback toast (used only if the Toastify CDN is unavailable) -->
-    <div class="toast-container">
-      <div id="toast" class="toast" role="status"></div>
+    <!-- Shown while files are dragged over the window -->
+    <div id="dropzone" class="dropzone hidden" aria-hidden="true">
+      <div class="dropzone-card">
+        <svg class="icon" aria-hidden="true"><use href="#i-circle-arrow-up" /></svg>
+        <span id="dropzone-text">Drop files to send</span>
+      </div>
+    </div>
+
+    <!-- Incoming transfer consent. Nothing is received until this is
+         answered, and it answers itself with a decline when the timer runs
+         out so a request can never sit there forever. -->
+    <div id="consent" class="dialog hidden" role="dialog" aria-modal="true">
+      <div class="dialog-backdrop" data-consent-decline></div>
+      <div class="dialog-panel consent-panel">
+        <div class="dialog-header">
+          <div class="dialog-title">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield" /></svg>
+            Incoming files
+          </div>
+          <span class="state-badge neutral mono" id="consent-timer">60s</span>
+        </div>
+
+        <p class="consent-lead">
+          <strong id="consent-from">A device</strong> wants to send you
+          <span id="consent-summary">files</span>.
+        </p>
+
+        <ul class="consent-files" id="consent-files"></ul>
+
+        <label class="consent-trust">
+          <input type="checkbox" id="consent-trust" />
+          <span>Accept future files from this device automatically</span>
+        </label>
+
+        <div class="dialog-actions">
+          <button class="button" id="consent-decline">Decline</button>
+          <button class="button primary" id="consent-accept">Accept</button>
+        </div>
+        <div class="consent-queue hidden" id="consent-queue"></div>
+      </div>
+    </div>
+
+    <div class="toast-container" id="toasts" role="status" aria-live="polite">
     </div>
 
     <input type="file" id="file-input" multiple hidden />
@@ -1085,7 +1217,7 @@
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker
-            .register("scripts/sw.js?v=2.3.0")
+            .register("scripts/sw.js?v=2.4.0")
             .then((reg) => {
               reg.update();
               setInterval(() => reg.update(), 3600000);
@@ -1109,10 +1241,10 @@
       }
     </script>
 
-    <script src="scripts/network.js?v=2.3.0"></script>
-    <script src="scripts/theme.js?v=2.3.0"></script>
-    <script src="scripts/background-animation.js?v=2.3.0"></script>
-    <script src="scripts/notifications.js?v=2.3.0"></script>
-    <script src="scripts/ui.js?v=2.3.0"></script>
+    <script src="scripts/network.js?v=2.4.0"></script>
+    <script src="scripts/theme.js?v=2.4.0"></script>
+    <script src="scripts/background-animation.js?v=2.4.0"></script>
+    <script src="scripts/notifications.js?v=2.4.0"></script>
+    <script src="scripts/ui.js?v=2.4.0"></script>
   </body>
 </html>

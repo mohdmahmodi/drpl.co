@@ -330,7 +330,7 @@ button {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   padding: 2px;
 }
 
@@ -974,6 +974,52 @@ button {
   white-space: nowrap;
 }
 
+/* Transfers running alongside the one in the card */
+.tp-others-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tp-others {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tp-other {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.tp-other:hover {
+  border-color: var(--border-strong);
+}
+
+.tp-other:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}
+
+.tp-other .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+}
+
+.tp-other-pct {
+  font-size: 12px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Transfers pane layout: main card + session column on wide screens */
 .tp-grid {
   display: flex;
@@ -1413,42 +1459,108 @@ button {
   text-underline-offset: 2px;
 }
 
-.chat-bubble.bubble-image {
-  padding: 0;
-  background: transparent !important;
-  overflow: hidden;
-}
-
-.chat-inline-image {
-  max-width: 240px;
-  max-height: 220px;
-  border-radius: var(--radius);
-  display: block;
+/* Everything that arrives is one click from the clipboard, so bubbles are
+   interactive and say so on hover. */
+.chat-bubble,
+.chat-file {
   cursor: pointer;
-  object-fit: cover;
+  position: relative;
 }
 
-.chat-bubble.bubble-link a {
+.chat-text {
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+/* Copy / open / save. Revealed on hover on pointer devices, always visible
+   on touch where there is no hover to reveal them. */
+.chat-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease);
+}
+
+.chat-row:hover .chat-actions,
+.chat-row:focus-within .chat-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .chat-actions {
+    opacity: 1;
+  }
+}
+
+/* A text bubble is already a copy target, so its single button sits in the
+   gutter beside the bubble instead of under the text. Stacking it inside
+   made a six character message three times taller than its content. */
+.chat-bubble > .chat-actions {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.chat-row.sent .chat-bubble > .chat-actions {
+  right: 100%;
+  margin-right: 2px;
+}
+
+.chat-row.received .chat-bubble > .chat-actions {
+  left: 100%;
+  margin-left: 2px;
+}
+
+/* Touch has no hover to reveal it, and tapping the bubble already copies,
+   so a permanent button beside every message would just be clutter. */
+@media (hover: none) {
+  .chat-bubble > .chat-actions {
+    display: none;
+  }
+}
+
+/* A message that is only a URL: host on top, full link underneath */
+.chat-bubble.bubble-link {
+  padding: 10px 12px;
+}
+
+.link-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  text-decoration: none !important;
+  gap: 10px;
 }
 
-.chat-bubble.bubble-link .icon {
-  width: 13px;
-  height: 13px;
+.link-card-icon .icon {
+  width: 15px;
+  height: 15px;
+  opacity: 0.8;
 }
 
-.chat-bubble.bubble-link span {
-  flex: 1;
+.link-card-text {
   min-width: 0;
+  flex: 1;
+}
+
+.link-card-host {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.link-card-url {
+  font-size: 11.5px;
+  opacity: 0.75;
   white-space: nowrap;
-  font-size: 13px;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+/* Buttons sit beside the link, not on a row of their own */
+.link-card .chat-actions {
+  flex-shrink: 0;
 }
 
 /* File events in the conversation */
@@ -1461,6 +1573,38 @@ button {
   border-radius: var(--radius);
   background: var(--surface);
   max-width: 100%;
+  transition: border-color var(--t-fast) var(--ease);
+}
+
+.chat-file:hover {
+  border-color: var(--border-strong);
+}
+
+/* Buttons sit on the same line as the file name */
+.chat-file > .chat-actions {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.chat-file.chat-file-image {
+  display: block;
+  padding: 6px;
+}
+
+.chat-file-caption {
+  font-size: 11.5px;
+  color: var(--muted);
+  padding: 6px 4px 0;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* An image bubble stacks: thumbnail, caption, then its buttons */
+.chat-file-image .chat-actions {
+  margin-top: 4px;
+  padding: 0 2px;
 }
 
 .chat-file .file-type-icon {
@@ -1506,10 +1650,37 @@ button {
   padding: 0 4px;
 }
 
+.chat-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
 .chat-time {
   font-size: 11px;
   color: var(--muted);
-  padding: 0 4px;
+}
+
+/* Delivery state, driven by the receiver acknowledging the message */
+.chat-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
+
+.chat-status-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.chat-empty-hint {
+  margin-top: 8px;
+  font-size: 12.5px;
+  opacity: 0.85;
+  max-width: 46ch;
 }
 
 .mp-peerbar .mp-clear {
@@ -1580,99 +1751,322 @@ button {
   height: 16px;
 }
 
-/* ===== Toasts (Toastify-js; its stock stylesheet is not loaded) ===== */
-.toastify {
-  position: fixed;
-  z-index: 300;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: min(380px, calc(100vw - 32px));
-  padding: 10px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-panel);
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 500;
-  opacity: 0;
-  transition:
-    opacity var(--t-med) var(--ease),
-    bottom var(--t-med) var(--ease);
-  cursor: default;
-}
-
-.toastify.on {
-  opacity: 1;
-}
-
-.toastify .toast-icon {
-  display: flex;
-  color: var(--muted);
-}
-
-.toastify .toast-icon .icon {
-  width: 16px;
-  height: 16px;
-}
-
-.toastify .toast-icon.ok {
-  color: var(--ok-text);
-}
-
-.toastify .toast-icon.bad {
-  color: var(--bad-text);
-}
-
-.toastify .toast-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.toastify-center {
-  left: 0;
-  right: 0;
-  margin-left: auto;
-  margin-right: auto;
-  width: fit-content;
-}
-
+/* ===== Toasts ===== */
 .toast-container {
   position: fixed;
   bottom: 24px;
   left: 0;
   right: 0;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   pointer-events: none;
   z-index: 300;
+  padding: 0 16px;
 }
 
 .toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(420px, 100%);
+  padding: 10px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--text);
-  padding: 10px 16px;
   border-radius: var(--radius);
   box-shadow: var(--shadow-panel);
-  opacity: 0;
-  transform: translateY(6px);
-  transition:
-    opacity var(--t-med) var(--ease),
-    transform var(--t-med) var(--ease);
-  pointer-events: auto;
-  max-width: min(380px, 88vw);
+  color: var(--text);
   font-size: 13px;
   font-weight: 500;
-  text-align: center;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-in var(--t-med) var(--ease);
 }
 
-.toast.active {
-  opacity: 1;
-  transform: translateY(0);
+.toast.leaving {
+  animation: toast-out 0.2s var(--ease) forwards;
+}
+
+.toast .toast-icon {
+  display: flex;
+  color: var(--muted);
+}
+
+.toast .toast-icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.toast .toast-icon.ok {
+  color: var(--ok-text);
+}
+
+.toast .toast-icon.bad {
+  color: var(--bad-text);
+}
+
+.toast .toast-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* ===== Consent dialog ===== */
+.dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+}
+
+.dialog-panel {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-panel);
+  padding: 18px 20px 20px;
+}
+
+.consent-panel .dialog-header {
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+
+.consent-panel .dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.consent-panel .dialog-title .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.consent-lead {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.consent-lead strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.consent-files {
+  list-style: none;
+  margin: 14px 0;
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.consent-files li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.consent-files .file-type-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.consent-file-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.consent-file-size {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.consent-file-more {
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent !important;
+  padding-left: 10px;
+}
+
+.consent-trust {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.consent-trust input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--action);
+  cursor: pointer;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.consent-queue {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* ===== Drag and drop ===== */
+.dropzone {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay);
+  pointer-events: none;
+}
+
+.dropzone-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 26px;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-panel);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dropzone-card .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+}
+
+.peer.drop-target {
+  outline: 2px solid var(--border-strong);
+  outline-offset: -2px;
+}
+
+/* ===== Motion ===== */
+/* Applied for the length of one run by Motion in ui.js, then removed */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    transform: scale(0.6);
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-in {
+  from {
+    transform: scale(0.97);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.anim-row-in {
+  animation: row-in 0.25s var(--ease) both;
+}
+
+.anim-row-out {
+  opacity: 0;
+  transition: opacity 0.15s var(--ease);
+}
+
+.anim-pane-in {
+  animation: row-in 0.22s var(--ease);
+}
+
+.anim-pop {
+  animation: pop-in 0.35s var(--ease);
+}
+
+.anim-pulse {
+  animation: pulse-in 0.25s var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-row-in,
+  .anim-pane-in,
+  .anim-pop,
+  .anim-pulse,
+  .toast {
+    animation: none;
+  }
 }
 
 /* ===== About ===== */

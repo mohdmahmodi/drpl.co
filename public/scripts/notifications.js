@@ -24,9 +24,19 @@ window.NotificationManager = (function () {
     checkPermission() {
       if (Notification.permission === "granted") {
         this.hasPermission = true;
-      } else if (Notification.permission !== "denied") {
-        this.requestPermission();
+        return;
       }
+      if (Notification.permission === "denied") return;
+      // Asking on page load throws a permission dialog at someone who has not
+      // done anything yet - browsers penalise it and people reflexively block.
+      // Wait until they interact with the page at least once.
+      const ask = () => {
+        document.removeEventListener("pointerdown", ask);
+        document.removeEventListener("keydown", ask);
+        this.requestPermission();
+      };
+      document.addEventListener("pointerdown", ask, { once: true });
+      document.addEventListener("keydown", ask, { once: true });
     }
 
     requestPermission() {

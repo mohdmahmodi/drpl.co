@@ -64,3 +64,6 @@ npm-debug.log
 # Local working docs (kept out of the repo on purpose)
 CLAUDE.md
 spec.md
+ai-generated-ui-things-to-avoid.md
+design-system.md
+RESEARCH.md

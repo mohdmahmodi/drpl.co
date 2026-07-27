@@ -7,9 +7,15 @@
  * WSPeer            server-relay transport (fallback when WebRTC is blocked)
  *
  * Transfer protocol (JSON control messages + binary chunks, in order):
- *   sender:   transfer-start > [file-start > chunks... > file-end]* > transfer-end
- *   receiver: progress (throttled), file-received (per file), transfer-received
+ *   sender:   transfer-request > (wait for consent)
+ *             transfer-start > [file-start > chunks... > file-end]* > transfer-end
+ *   receiver: transfer-response > progress (throttled), file-received (per
+ *             file), transfer-received
  *   either:   transfer-cancel
+ *
+ * Nothing is sent until the receiving device accepts. A transfer-start whose
+ * id was never accepted is rejected, so consent cannot be skipped by a peer
+ * that ignores the handshake.
  */
 
 class Events {
@@ -32,6 +38,16 @@ const HIGH_WATER = 4 * 1024 * 1024;
 const LOW_WATER = 512 * 1024;
 const WS_HIGH_WATER = 1 * 1024 * 1024;
 const PROGRESS_INTERVAL = 100; // ms between progress events/messages
+
+// How long the receiving device has to accept an incoming transfer. The
+// sender waits a little longer so a decline that is already on the wire wins
+// over the sender's own timeout.
+const CONSENT_TIMEOUT = 60 * 1000;
+const CONSENT_GRACE = 5 * 1000;
+
+let messageCounter = 0;
+const nextId = (prefix) =>
+  `${prefix}${Date.now().toString(36)}-${(messageCounter++).toString(36)}`;
 
 // ── ServerConnection ─────────────────────────────────────────────────────────
 
@@ -275,6 +291,45 @@ class Peer {
     };
     this._outgoing = transfer;
 
+    // Ask first. No file data is read or sent until the other device says yes.
+    Events.fire("transfer-pending", {
+      peerId: this._peerId,
+      direction: "send",
+      transferId: transfer.id,
+      files: transfer.meta,
+      totalSize: transfer.totalSize,
+      expiresAt: Date.now() + CONSENT_TIMEOUT,
+    });
+
+    this._out({
+      type: "transfer-request",
+      id: transfer.id,
+      files: transfer.meta,
+      totalSize: transfer.totalSize,
+    });
+
+    const verdict = await this._awaitConsent(transfer);
+    if (verdict !== "accepted") {
+      if (transfer.cancelled) return; // already reported by cancelTransfer
+      // Unless the other side is the one that said no, tell it to drop the
+      // request. Without this, a device whose timer never ran (a frozen
+      // phone, say) would still be showing a prompt for a transfer this side
+      // has already given up on.
+      if (verdict !== "declined") {
+        this._out({ type: "transfer-cancel", id: transfer.id, reason: verdict });
+      }
+      this._outgoing = null;
+      Events.fire("transfer-cancelled", {
+        peerId: this._peerId,
+        direction: "send",
+        transferId: transfer.id,
+        reason: verdict,
+      });
+      this._dequeue();
+      return;
+    }
+
+    transfer.startedAt = Date.now();
     Events.fire("transfer-started", {
       peerId: this._peerId,
       direction: "send",
@@ -312,6 +367,58 @@ class Peer {
         this._cancelOutgoing("error");
       }
     }
+  }
+
+  // Resolves with "accepted", or with the reason the transfer will not happen.
+  _awaitConsent(transfer) {
+    return new Promise((resolve) => {
+      transfer.resolveConsent = (verdict) => {
+        clearTimeout(transfer.consentTimer);
+        transfer.resolveConsent = null;
+        resolve(verdict);
+      };
+      transfer.consentTimer = setTimeout(
+        () => transfer.resolveConsent && transfer.resolveConsent("no-response"),
+        CONSENT_TIMEOUT + CONSENT_GRACE,
+      );
+    });
+  }
+
+  _onTransferResponse(msg) {
+    const t = this._outgoing;
+    if (!t || t.id !== msg.id || !t.resolveConsent) return;
+    t.resolveConsent(msg.accepted ? "accepted" : msg.reason || "declined");
+  }
+
+  // ---- consent (receiving side) ----
+
+  _onTransferRequest(msg) {
+    // A second request while one is still pending replaces it; the sender of
+    // the older one times out on its own.
+    this._pendingRequest = {
+      id: msg.id,
+      files: msg.files || [],
+      totalSize: msg.totalSize || 0,
+    };
+    Events.fire("transfer-request", {
+      peerId: this._peerId,
+      transferId: msg.id,
+      files: this._pendingRequest.files,
+      totalSize: this._pendingRequest.totalSize,
+      expiresAt: Date.now() + CONSENT_TIMEOUT,
+    });
+  }
+
+  respondToRequest(transferId, accepted, reason) {
+    if (!this._pendingRequest || this._pendingRequest.id !== transferId) return;
+    this._pendingRequest = null;
+    if (accepted) this._acceptedTransferId = transferId;
+    this._out({
+      type: "transfer-response",
+      id: transferId,
+      accepted: !!accepted,
+      reason: accepted ? undefined : reason || "declined",
+    });
   }
 
   async _streamFile(transfer, file, index) {
@@ -363,6 +470,9 @@ class Peer {
     const t = this._outgoing;
     if (!t) return;
     t.cancelled = true;
+    // If it is still waiting on consent, release the waiter so _dequeue does
+    // not resume a transfer that has already been reported as cancelled.
+    if (t.resolveConsent) t.resolveConsent(reason);
     this._out({ type: "transfer-cancel", id: t.id, reason });
     this._outgoing = null;
     Events.fire("transfer-cancelled", {
@@ -388,10 +498,14 @@ class Peer {
     });
   }
 
+  // Returns the id the receiver will acknowledge, so the UI can show whether
+  // a message actually landed rather than assuming it did.
   sendText(text, broadcast = false) {
-    const msg = { type: "text", text };
+    const id = nextId("m");
+    const msg = { type: "text", id, text };
     if (broadcast) msg.broadcast = true;
     this._out(msg);
+    return id;
   }
 
   // ---- receiving ----
@@ -408,6 +522,12 @@ class Peer {
       return;
     }
     switch (msg.type) {
+      case "transfer-request":
+        this._onTransferRequest(msg);
+        break;
+      case "transfer-response":
+        this._onTransferResponse(msg);
+        break;
       case "transfer-start":
         this._onTransferStart(msg);
         break;
@@ -433,10 +553,18 @@ class Peer {
         this._onRemoteProgress(msg);
         break;
       case "text":
+        if (msg.id) this._out({ type: "text-ack", id: msg.id });
         Events.fire("text-received", {
+          id: msg.id,
           text: msg.text,
           sender: this._peerId,
           broadcast: !!msg.broadcast,
+        });
+        break;
+      case "text-ack":
+        Events.fire("text-delivered", {
+          peerId: this._peerId,
+          id: msg.id,
         });
         break;
       case "chunk":
@@ -452,6 +580,13 @@ class Peer {
   }
 
   _onTransferStart(msg) {
+    // Consent is enforced here, not just in the UI: a peer that skips the
+    // handshake and sends transfer-start directly gets nothing.
+    if (this._acceptedTransferId !== msg.id) {
+      this._out({ type: "transfer-cancel", id: msg.id, reason: "declined" });
+      return;
+    }
+    this._acceptedTransferId = null;
     this._incoming = {
       id: msg.id,
       files: msg.files,
@@ -528,6 +663,8 @@ class Peer {
     t.doneCount++;
     this._out({ type: "file-received", id: t.id, index: msg.index });
     Events.fire("file-received", {
+      // Stable across panes so a message entry can point at the same file
+      id: `${t.id}-${msg.index}`,
       name: meta.name,
       mime: meta.mime,
       size: meta.size,
@@ -582,9 +719,18 @@ class Peer {
   }
 
   _onRemoteCancel(msg) {
+    if (this._pendingRequest && this._pendingRequest.id === msg.id) {
+      this._pendingRequest = null;
+      Events.fire("transfer-request-withdrawn", {
+        peerId: this._peerId,
+        transferId: msg.id,
+      });
+    }
+    if (this._acceptedTransferId === msg.id) this._acceptedTransferId = null;
     if (this._outgoing && this._outgoing.id === msg.id) {
       const t = this._outgoing;
       t.cancelled = true;
+      if (t.resolveConsent) t.resolveConsent(msg.reason || "remote");
       this._outgoing = null;
       Events.fire("transfer-cancelled", {
         peerId: this._peerId,
@@ -640,9 +786,19 @@ class Peer {
 
   // If a transfer dies with the connection, surface it instead of spinning
   _failActiveTransfers() {
+    if (this._pendingRequest) {
+      const id = this._pendingRequest.id;
+      this._pendingRequest = null;
+      Events.fire("transfer-request-withdrawn", {
+        peerId: this._peerId,
+        transferId: id,
+      });
+    }
+    this._acceptedTransferId = null;
     if (this._outgoing) {
       const t = this._outgoing;
       t.cancelled = true;
+      if (t.resolveConsent) t.resolveConsent("connection-lost");
       this._outgoing = null;
       Events.fire("transfer-cancelled", {
         peerId: this._peerId,
@@ -1078,10 +1234,12 @@ class PeersManager {
     Events.on("signal", (e) => this._onSignal(e.detail));
     Events.on("server-relay", (e) => this._onRelay(e.detail));
     Events.on("peers", (e) => this._onPeers(e.detail));
+    Events.on("peer-joined", (e) => this._onPeerJoined(e.detail));
     Events.on("files-selected", (e) => this._onFilesSelected(e.detail));
     Events.on("send-text", (e) => this._onSendText(e.detail));
     Events.on("peer-left", (e) => this._onPeerLeft(e.detail));
     Events.on("cancel-transfer", (e) => this._onCancelTransfer(e.detail));
+    Events.on("respond-to-transfer", (e) => this._onRespond(e.detail));
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) this.refreshAllPeers();
     });
@@ -1127,6 +1285,20 @@ class PeersManager {
     peer._onMessage(JSON.stringify(payload));
   }
 
+  // A device that just joined is registered immediately, as callee: by
+  // convention the newcomer makes the offer, and it already has us in the
+  // "peers" list it received. Without this the peer object only appeared once
+  // the newcomer signalled - so clicking a freshly listed device raced against
+  // its offer, and a newcomer with no WebRTC (which never signals) could never
+  // be sent anything at all.
+  _onPeerJoined(info) {
+    if (!info || this.peers[info.id]) return;
+    this.peers[info.id] =
+      window.RTCPeerConnection && info.rtcSupported
+        ? new RTCPeer(this._server, info.id, false)
+        : new WSPeer(this._server, info.id);
+  }
+
   _onPeers(peers) {
     const seen = new Set();
     peers.forEach((info) => {
@@ -1162,19 +1334,34 @@ class PeersManager {
     if (message.to === "*") {
       const ids = Object.keys(this.peers);
       if (!ids.length) return;
-      ids.forEach((id) => this.peers[id].sendText(message.text, true));
-      Events.fire("text-sent");
+      const ids2 = ids.map((id) => this.peers[id].sendText(message.text, true));
+      Events.fire("text-sent", {
+        to: "*",
+        localId: message.localId,
+        messageIds: ids2,
+        recipients: ids.length,
+      });
       return;
     }
     const peer = this.peers[message.to];
     if (!peer) return;
-    peer.sendText(message.text, !!message.broadcast);
-    Events.fire("text-sent");
+    const id = peer.sendText(message.text, !!message.broadcast);
+    Events.fire("text-sent", {
+      to: message.to,
+      localId: message.localId,
+      messageIds: [id],
+      recipients: 1,
+    });
   }
 
   _onCancelTransfer(peerId) {
     const peer = this.peers[peerId];
     if (peer) peer.cancelTransfer();
+  }
+
+  _onRespond({ peerId, transferId, accepted, reason }) {
+    const peer = this.peers[peerId];
+    if (peer) peer.respondToRequest(transferId, accepted, reason);
   }
 
   _onPeerLeft(peerId) {

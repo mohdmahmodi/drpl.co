@@ -1,5 +1,5 @@
 // Service worker for drpl.co
-const CACHE_NAME = "drpl-cache-v11";
+const CACHE_NAME = "drpl-cache-v13";
 
 const STATIC_ASSETS = [
   "/",

@@ -5,7 +5,7 @@
       "name": "drpl",
       "runtimeExecutable": "node",
       "runtimeArgs": ["server.js"],
-      "port": 3002,
+      "port": 3003,
       "autoPort": true
     }
   ]
