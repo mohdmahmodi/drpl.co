@@ -1,19 +1,16 @@
 /**
- * drpl.co - Notifications Javascript
- * Handles system notifications for incoming files, messages, and peer events
+ * drpl.co - system notifications
+ *
+ * Desktop notifications for events that happen while the tab is hidden.
  */
 
 window.NotificationManager = (function () {
-  const isURL = (text) =>
-    /^((https?:\/\/|www)[^\s]+)/g.test(text.toLowerCase());
+  const isURL = (text) => /^((https?:\/\/|www)[^\s]+)$/i.test(text.trim());
 
   class NotificationHandler {
     constructor() {
       this.hasPermission = false;
-      if (!("Notification" in window)) {
-        console.log("This browser does not support desktop notifications");
-        return;
-      }
+      if (!("Notification" in window)) return;
       this.checkPermission();
       this._setupEventListeners();
     }
@@ -22,79 +19,71 @@ window.NotificationManager = (function () {
       Events.on("text-received", (e) => this.textNotification(e.detail));
       Events.on("file-received", (e) => this.fileNotification(e.detail));
       Events.on("peer-joined", (e) => this.peerJoinedNotification(e.detail));
-      Events.on("peer-left", (e) => this.peerLeftNotification(e.detail));
     }
 
     checkPermission() {
       if (Notification.permission === "granted") {
         this.hasPermission = true;
-      } else if (Notification.permission !== "denied") {
-        this.requestPermission();
+        return;
       }
+      if (Notification.permission === "denied") return;
+      // Asking on page load throws a permission dialog at someone who has not
+      // done anything yet - browsers penalise it and people reflexively block.
+      // Wait until they interact with the page at least once.
+      const ask = () => {
+        document.removeEventListener("pointerdown", ask);
+        document.removeEventListener("keydown", ask);
+        this.requestPermission();
+      };
+      document.addEventListener("pointerdown", ask, { once: true });
+      document.addEventListener("keydown", ask, { once: true });
     }
 
     requestPermission() {
       return Notification.requestPermission()
         .then((permission) => {
-          if (permission === "granted") {
-            this.hasPermission = true;
-            this.notify("drpl.co", "Notifications enabled");
-          }
+          if (permission === "granted") this.hasPermission = true;
         })
-        .catch((err) =>
-          console.error("Error requesting notification permission:", err),
-        );
+        .catch(() => {});
     }
 
-    /**
-     * Display a system notification.
-     * FIX: Removed redundant visibility check — callers are responsible for that guard.
-     */
     notify(title, body, data = {}) {
       if (!this.hasPermission) return null;
       try {
         const notification = new Notification(title, {
           body,
-          icon: "favicon.png",
+          icon: "images/favicon.png",
           data,
         });
         notification.onclick = () => {
           window.focus();
           notification.close();
-          if (data.action && typeof data.action === "function") data.action();
+          if (typeof data.action === "function") data.action();
         };
         setTimeout(() => notification.close(), 5000);
         return notification;
       } catch (err) {
-        console.error("Error creating notification:", err);
         return null;
       }
     }
 
-    /**
-     * FIX: Single visibility guard per notification method.
-     * Removed the duplicate check that was also inside notify().
-     */
     textNotification(data) {
       if (document.visibilityState === "visible") return;
       const text = data.text;
       if (isURL(text)) {
-        this.notify("New Link Received", text, {
+        this.notify("Link received", text, {
           action: () =>
             window.open(
-              text.startsWith("http") ? text : `http://${text}`,
+              text.startsWith("http") ? text : `https://${text}`,
               "_blank",
               "noopener,noreferrer",
             ),
         });
       } else {
-        const truncated =
-          text.substring(0, 50) + (text.length > 50 ? "..." : "");
-        this.notify("New Message", truncated, {
+        const truncated = text.length > 60 ? `${text.slice(0, 60)}...` : text;
+        this.notify("Message received", truncated, {
           action: () => {
-            if (window.drplUI && window.drplUI.dialogs.receiveText) {
-              window.drplUI.dialogs.receiveText.showText(text, data.sender);
-            }
+            if (window.drplUI) window.drplUI.openMessages(data.sender);
           },
         });
       }
@@ -102,11 +91,9 @@ window.NotificationManager = (function () {
 
     fileNotification(file) {
       if (document.visibilityState === "visible") return;
-      this.notify("File Received", file.name, {
+      this.notify("File received", file.name, {
         action: () => {
-          if (window.drplUI && window.drplUI.dialogs.receive) {
-            window.drplUI.dialogs.receive.show();
-          }
+          if (window.drplUI) window.drplUI.showFiles();
         },
       });
     }
@@ -114,14 +101,10 @@ window.NotificationManager = (function () {
     peerJoinedNotification(peer) {
       if (document.visibilityState === "visible") return;
       this.notify(
-        "New Device Available",
-        `${peer.name.displayName} (${peer.name.deviceName}) joined the network`,
+        "Device nearby",
+        `${peer.name.displayName} (${peer.name.deviceName}) joined your network`,
         { action: () => window.focus() },
       );
-    }
-
-    peerLeftNotification(_peerId) {
-      // Intentionally no notification on peer departure
     }
   }
 
@@ -129,7 +112,3 @@ window.NotificationManager = (function () {
     init: () => new NotificationHandler(),
   };
 })();
-
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("Notifications module loaded");
-});

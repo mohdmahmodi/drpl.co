@@ -1,5 +1,5 @@
-// Service Worker for drpl.co
-const CACHE_NAME = "drpl-cache-v8";
+// Service worker for drpl.co
+const CACHE_NAME = "drpl-cache-v13";
 
 const STATIC_ASSETS = [
   "/",
@@ -11,13 +11,13 @@ const STATIC_ASSETS = [
   "/scripts/theme.js",
   "/scripts/background-animation.js",
   "/scripts/notifications.js",
+  "/fonts/figtree-latin-var.woff2",
   "/images/favicon.png",
   "/manifest.json",
+  "/sent.mp3",
 ];
 
-// Assets that should ALWAYS be fetched fresh from the network first.
-// FIX: JS and CSS are network-first so version bumps take effect immediately
-// without requiring users to manually clear cache.
+// JS and CSS are network-first so deploys take effect on next load
 const NETWORK_FIRST_PATTERNS = [/\/scripts\//, /\/styles\//];
 
 function isNetworkFirst(url) {
@@ -33,15 +33,12 @@ function isNavigationRequest(request) {
   );
 }
 
-// ── Install ──────────────────────────────────────────────────────────────────
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installing");
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => {
-        // Cache offline page first, then the rest
-        return cache
+      .then((cache) =>
+        cache
           .add("/offline.html")
           .catch(() => cache.add("offline.html"))
           .then(() =>
@@ -50,15 +47,13 @@ self.addEventListener("install", (event) => {
                 (u) => cache.add(u),
               ),
             ),
-          );
-      })
+          ),
+      )
       .then(() => self.skipWaiting()),
   );
 });
 
-// ── Activate ─────────────────────────────────────────────────────────────────
 self.addEventListener("activate", (event) => {
-  console.log("[SW] Activating");
   event.waitUntil(
     caches
       .keys()
@@ -73,14 +68,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// ── Fetch ─────────────────────────────────────────────────────────────────────
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || event.request.url.includes("/server"))
     return;
 
   const url = event.request.url;
 
-  // FIX: Network-first for JS and CSS — ensures updates are picked up immediately
   if (isNetworkFirst(url)) {
     event.respondWith(
       fetch(event.request)
@@ -93,12 +86,11 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request)), // Fall back to cache if offline
+        .catch(() => caches.match(event.request)),
     );
     return;
   }
 
-  // Cache-first for everything else (images, fonts, HTML)
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -119,7 +111,6 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => {
-          // Offline fallback for navigation requests
           if (isNavigationRequest(event.request)) {
             return caches
               .match("/offline.html")
