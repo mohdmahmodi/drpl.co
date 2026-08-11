@@ -107,8 +107,10 @@ Conversations combine text, links and the files you exchanged:
 
 1. A small Node.js server groups connected browsers by the public IP it
    sees. Devices behind the same router land in the same room and get each
-   other's names. That is all the server knows: names, IPs and connection
-   metadata. Never file contents.
+   other's names. IPv6 clients are grouped by their /64 network, since
+   devices on one LAN share the prefix but each has its own full address.
+   That is all the server knows: names, IPs and connection metadata. Never
+   file contents.
 2. Browsers negotiate a WebRTC data channel through the server (STUN via
    Google and Cloudflare, no TURN). On a shared Wi-Fi the channel connects
    directly between the devices, so bytes move at local network speed.

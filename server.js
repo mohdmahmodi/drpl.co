@@ -133,10 +133,32 @@ function clientAddress(request) {
 }
 
 /**
+ * Devices on one IPv6 network share a /64 prefix but each carries its own
+ * full address, so rooming by the complete address would put two phones on
+ * the same Wi-Fi in different rooms. Group by the /64 network instead - the
+ * standard per-LAN allocation. Mobile devices each get their own /64 from
+ * the carrier, so they stay isolated from each other as before.
+ */
+function ipv6Prefix64(ip) {
+  // Expand the :: abbreviation far enough to read the first four hextets
+  const [head, tail = ""] = ip.split("::");
+  const headParts = head ? head.split(":") : [];
+  const tailParts = tail ? tail.split(":") : [];
+  const missing = Math.max(0, 8 - headParts.length - tailParts.length);
+  const full = [...headParts, ...Array(missing).fill("0"), ...tailParts];
+  // Re-encode each hextet so "0db8" and "db8" produce the same key
+  const prefix = full
+    .slice(0, 4)
+    .map((h) => (parseInt(h, 16) || 0).toString(16))
+    .join(":");
+  return `${prefix}::/64`;
+}
+
+/**
  * Rooms are keyed by address, so two spellings of the same address must not
  * split a network in two. Strips IPv6-mapped IPv4 (::ffff:192.168.1.5), any
- * zone index (fe80::1%eth0) and collapses loopback so local testing puts
- * every tab in one room.
+ * zone index (fe80::1%eth0), collapses loopback so local testing puts every
+ * tab in one room, and reduces IPv6 to its /64 network (see above).
  */
 function normalizeIP(address) {
   if (!address) return "unknown";
@@ -148,6 +170,7 @@ function normalizeIP(address) {
     ip = ip.replace(/^::ffff:/i, "");
   }
   if (ip === "::1" || ip === "127.0.0.1") return "127.0.0.1";
+  if (ip.includes(":")) return ipv6Prefix64(ip);
   return ip;
 }
 
