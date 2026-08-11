@@ -629,7 +629,7 @@ class Peer {
 
   _notifyReceiveProgress(t, force) {
     const now = Date.now();
-    if (!force && now - this._lastProgressFired >= PROGRESS_INTERVAL) {
+    if (force || now - this._lastProgressFired >= PROGRESS_INTERVAL) {
       this._lastProgressFired = now;
       Events.fire("transfer-progress", {
         peerId: this._peerId,
@@ -1334,11 +1334,13 @@ class PeersManager {
     if (message.to === "*") {
       const ids = Object.keys(this.peers);
       if (!ids.length) return;
-      const ids2 = ids.map((id) => this.peers[id].sendText(message.text, true));
+      const messageIds = ids.map((id) =>
+        this.peers[id].sendText(message.text, true),
+      );
       Events.fire("text-sent", {
         to: "*",
         localId: message.localId,
-        messageIds: ids2,
+        messageIds,
         recipients: ids.length,
       });
       return;

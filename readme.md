@@ -1,12 +1,10 @@
-<img src="https://ghtb-counter.vercel.app/api/counter?username=Drpl.co&label=Views&color=000000&labelColor=000000&labelBgColor=ffffff&countColor=ffffff&style=flat" alt="Views" />
-
 # drpl.co
 
 <p align="center">
-  <a href="https://github.com/MohdYahyaMahmodi/drpl.co/stargazers"><img src="https://img.shields.io/github/stars/MohdYahyaMahmodi/drpl.co" alt="Stars"></a>
-  <a href="https://github.com/MohdYahyaMahmodi/drpl.co/network/members"><img src="https://img.shields.io/github/forks/MohdYahyaMahmodi/drpl.co" alt="Forks"></a>
-  <a href="https://github.com/MohdYahyaMahmodi/drpl.co/issues"><img src="https://img.shields.io/github/issues/MohdYahyaMahmodi/drpl.co" alt="Issues"></a>
-  <a href="https://github.com/MohdYahyaMahmodi/drpl.co/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MohdYahyaMahmodi/drpl.co" alt="License"></a>
+  <a href="https://github.com/mohdmahmodi/drpl.co/stargazers"><img src="https://img.shields.io/github/stars/mohdmahmodi/drpl.co" alt="Stars"></a>
+  <a href="https://github.com/mohdmahmodi/drpl.co/network/members"><img src="https://img.shields.io/github/forks/mohdmahmodi/drpl.co" alt="Forks"></a>
+  <a href="https://github.com/mohdmahmodi/drpl.co/issues"><img src="https://img.shields.io/github/issues/mohdmahmodi/drpl.co" alt="Issues"></a>
+  <a href="https://github.com/mohdmahmodi/drpl.co/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mohdmahmodi/drpl.co" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-all_browsers-333333" alt="Platform">
 </p>
 
@@ -144,7 +142,7 @@ and a notice appears when a connection falls back.
 ## Run it yourself
 
 ```bash
-git clone https://github.com/MohdYahyaMahmodi/drpl.co.git
+git clone https://github.com/mohdmahmodi/drpl.co.git
 cd drpl.co
 npm install
 node server.js
@@ -246,6 +244,7 @@ find LAN peers by itself with today's browser APIs; the research notes in
 
 ```
 server.js                       signaling server (discovery + relay)
+Dockerfile                      two-stage build, no build step
 public/
   index.html                    markup, icon sprite, config
   scripts/network.js            transports and transfer protocol
@@ -255,8 +254,15 @@ public/
   scripts/notifications.js      desktop notifications
   scripts/sw.js                 service worker
   styles/styles.css             design tokens and all styling
-  fonts/, images/, manifest.json, offline.html
+  offline.html                  offline shell
+  manifest.json, robots.txt, sitemap.xml
+  favicon.ico, apple-touch-icon.png, og.png
+  fonts/, images/
 ```
+
+Version strings are maintained by hand and must be bumped together: the
+`?v=` query strings and the two visible labels in `index.html`, and
+`APP_VERSION` in `scripts/sw.js`.
 
 ## Browser support
 
@@ -277,7 +283,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Author
 
-**Mohd Yahya Mahmodi**
+**Mohd Mahmodi**
 
 - Website: [mohdmahmodi.com](https://mohdmahmodi.com)
 - X: [@mohdmahmodi](https://x.com/mohdmahmodi)

@@ -17,8 +17,6 @@ const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const isURL = (text) => /^((https?:\/\/|www)[^\s]+)$/i.test(text.trim());
-const isImageURL = (url) =>
-  /\.(jpe?g|png|gif|webp|svg|bmp|avif)(\?.*)?$/i.test(url);
 
 const TEXT_PREVIEW_EXT =
   /\.(txt|md|markdown|html?|css|js|mjs|ts|jsx|tsx|json|xml|ya?ml|csv|tsv|log|sh|py|rb|go|rs|c|h|cpp|java|sql|toml|ini|env|conf)$/i;
@@ -688,12 +686,10 @@ class DrplUI {
 
   _onPeerLeft(peerId) {
     delete this.peerInfo[peerId];
+    // The count reads from peerInfo, so it is already correct; the row just
+    // has to finish animating out before it goes.
     const el = $(`peer-${peerId}`);
-    if (el)
-      Motion.rowOut(el, () => {
-        el.remove();
-        this._updateCount();
-      });
+    if (el) Motion.rowOut(el, () => el.remove());
     this._updateCount();
   }
 
@@ -855,8 +851,6 @@ class DrplUI {
       box.append(label);
     }
   }
-
-  // ---- misc ----
 
   // ---- drag and drop ----
 

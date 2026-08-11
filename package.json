@@ -1,10 +1,26 @@
 {
   "name": "drpl-co",
-  "version": "1.0.0",
-  "description": "Simple device file sharing with peer-to-peer technology",
+  "version": "2.4.0",
+  "description": "Transfer files directly between devices on the same network. Peer to peer, nothing uploaded to a server, no account needed.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
+  },
+  "keywords": [
+    "file-sharing",
+    "webrtc",
+    "peer-to-peer",
+    "local-network",
+    "airdrop",
+    "file-transfer"
+  ],
+  "homepage": "https://drpl.co",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mohdmahmodi/drpl.co.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mohdmahmodi/drpl.co/issues"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -13,8 +29,8 @@
     "ws": "^8.13.0"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   },
-  "author": "",
+  "author": "Mohd Mahmodi <mohdmahmodi@pm.me> (https://mohdmahmodi.com)",
   "license": "MIT"
 }

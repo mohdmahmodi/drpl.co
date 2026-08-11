@@ -146,6 +146,21 @@ button {
   display: none !important;
 }
 
+/* Available to screen readers and crawlers, not to sighted users. Clipped
+   rather than display:none, which would take it out of the accessibility
+   tree along with everything else. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .icon {
   width: 18px;
   height: 18px;
@@ -498,6 +513,25 @@ button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.built-by {
+  padding: 10px 12px 2px;
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.built-by a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--border-strong);
+  transition: color var(--t-fast) var(--ease);
+}
+
+.built-by a:hover {
+  color: var(--text);
 }
 
 /* ===== Main ===== */
@@ -1090,88 +1124,141 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 4px;
+  padding: 8px 2px 12px;
 }
 
 .fp-toolbar-spacer {
   flex: 1;
 }
 
+/*
+ * Responsive columns based on the actual available width.
+ * Every card in a row receives the same width and height.
+ */
 .fp-grid {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  grid-auto-rows: 1fr;
+  gap: 10px;
+  width: 100%;
 }
 
+.fp-grid > li {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+}
+
+/* Compact horizontal file card */
 .fp-tile {
   position: relative;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 32px;
+  grid-template-areas: "thumbnail metadata save";
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 78px;
+  height: 100%;
+  padding: 12px;
+  overflow: hidden;
+
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
-  overflow: hidden;
   cursor: pointer;
-  transition: border-color var(--t-fast) var(--ease);
+
+  transition:
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
 }
 
 .fp-tile:hover {
+  background: var(--surface-2);
   border-color: var(--border-strong);
 }
 
+.fp-tile:active {
+  transform: scale(0.99);
+}
+
+/* Fixed-size thumbnail, rather than a large 4:3 block */
 .fp-tile-thumb {
-  aspect-ratio: 4 / 3;
-  background: var(--surface-2);
+  grid-area: thumbnail;
+
+  width: 52px;
+  height: 52px;
+  aspect-ratio: auto;
+  flex-shrink: 0;
+
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  overflow: hidden;
+  gap: 2px;
+
   color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  overflow: hidden;
+}
+
+.fp-tile-thumb .icon {
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.5;
 }
 
 .fp-tile-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   display: block;
-}
-
-.fp-tile-thumb .icon {
-  width: 24px;
-  height: 24px;
-  stroke-width: 1.5;
+  object-fit: cover;
 }
 
 .fp-tile-ext {
+  max-width: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
   font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.fp-tile-save {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-soft);
-}
-
+/* Filename and size */
 .fp-tile-meta {
+  grid-area: metadata;
   display: block;
-  padding: 8px 10px;
   min-width: 0;
+  padding: 0;
   text-align: left;
 }
 
 .fp-tile-name {
   display: block;
-  font-size: 12.5px;
+  width: 100%;
+  min-width: 0;
+
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.35;
   color: var(--text);
+
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1179,10 +1266,53 @@ button {
 
 .fp-tile-size {
   display: block;
+  margin-top: 3px;
+
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: 11px;
+  line-height: 1.3;
   color: var(--muted);
+}
+
+/* Download action now participates in the grid */
+.fp-tile-save {
+  grid-area: save;
+  position: static;
+  justify-self: end;
+
+  width: 32px;
+  height: 32px;
+
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.fp-tile-save:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+/* One clean column on narrow phones */
+@media (max-width: 520px) {
+  .fp-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .fp-tile {
+    min-height: 72px;
+    padding: 10px;
+    grid-template-columns: 48px minmax(0, 1fr) 32px;
+    gap: 10px;
+  }
+
+  .fp-tile-thumb {
+    width: 48px;
+    height: 48px;
+  }
 }
 
 .fp-detail {
@@ -2171,11 +2301,10 @@ button {
 
 .about-table th,
 .about-table td {
-  text-align: left;
+  text-align: start;
   font-size: 12.5px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  text-align: start;
   vertical-align: top;
 }
 
@@ -2194,9 +2323,7 @@ button {
 
 .about-table td {
   color: var(--text);
-  text-align: start;
   width: 66%;
-  color: var(--text);
   overflow-wrap: anywhere;
 }
 
@@ -2323,201 +2450,7 @@ button {
   }
 }
 
-/* ===== Files pane: compact, even file grid ===== */
-
-.fp-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 2px 12px;
-}
-
-.fp-toolbar-spacer {
-  flex: 1;
-}
-
-/*
- * Responsive columns based on the actual available width.
- * Every card in a row receives the same width and height.
- */
-.fp-grid {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  grid-auto-rows: 1fr;
-  gap: 10px;
-  width: 100%;
-}
-
-.fp-grid > li {
-  display: flex;
-  min-width: 0;
-  height: 100%;
-}
-
-/* Compact horizontal file card */
-.fp-tile {
-  position: relative;
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) 32px;
-  grid-template-areas: "thumbnail metadata save";
-  align-items: center;
-  gap: 12px;
-
-  width: 100%;
-  min-width: 0;
-  min-height: 78px;
-  height: 100%;
-  padding: 12px;
-
-  font: inherit;
-  color: var(--text);
-  text-align: left;
-
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-soft);
-  cursor: pointer;
-
-  transition:
-    background-color var(--t-fast) var(--ease),
-    border-color var(--t-fast) var(--ease),
-    transform var(--t-fast) var(--ease);
-}
-
-.fp-tile:hover {
-  background: var(--surface-2);
-  border-color: var(--border-strong);
-}
-
-.fp-tile:active {
-  transform: scale(0.99);
-}
-
-/* Fixed-size thumbnail, rather than a large 4:3 block */
-.fp-tile-thumb {
-  grid-area: thumbnail;
-
-  width: 52px;
-  height: 52px;
-  aspect-ratio: auto;
-  flex-shrink: 0;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-
-  color: var(--muted);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 2px);
-  overflow: hidden;
-}
-
-.fp-tile-thumb .icon {
-  width: 21px;
-  height: 21px;
-  stroke-width: 1.5;
-}
-
-.fp-tile-thumb img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
-
-.fp-tile-ext {
-  max-width: 44px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  font-family: var(--font-mono);
-  font-size: 8px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* Filename and size */
-.fp-tile-meta {
-  grid-area: metadata;
-  display: block;
-  min-width: 0;
-  padding: 0;
-  text-align: left;
-}
-
-.fp-tile-name {
-  display: block;
-  width: 100%;
-  min-width: 0;
-
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.35;
-  color: var(--text);
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.fp-tile-size {
-  display: block;
-  margin-top: 3px;
-
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 11px;
-  line-height: 1.3;
-  color: var(--muted);
-}
-
-/* Download action now participates in the grid */
-.fp-tile-save {
-  grid-area: save;
-  position: static;
-  justify-self: end;
-
-  width: 32px;
-  height: 32px;
-
-  color: var(--muted);
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
-
-.fp-tile-save:hover {
-  color: var(--text);
-  background: var(--hover);
-}
-
-/* One clean column on narrow phones */
-@media (max-width: 520px) {
-  .fp-grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .fp-tile {
-    min-height: 72px;
-    padding: 10px;
-    grid-template-columns: 48px minmax(0, 1fr) 32px;
-    gap: 10px;
-  }
-
-  .fp-tile-thumb {
-    width: 48px;
-    height: 48px;
-  }
-}
+/* ===== Version tag ===== */
 
 .version {
   font-size: 10px;
