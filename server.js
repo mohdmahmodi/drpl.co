@@ -28,10 +28,15 @@ const {
 } = require("unique-names-generator");
 
 // How often the server sweeps connections, and how stale a connection may be
-// before it is terminated. Sweep interval must stay well under proxy idle
-// timeouts (Cloudflare ~100s, default nginx 60s) so proxied sockets stay warm.
-const SWEEP_INTERVAL = 25 * 1000;
-const STALE_TIMEOUT = 70 * 1000;
+// before it is terminated. The sweep doubles as the keepalive (it pings every
+// peer), so its interval must stay well under proxy idle timeouts (Cloudflare
+// ~100s, default nginx 60s). The stale timeout is what decides how quickly a
+// vanished device (closed lid, dead radio, no TCP FIN) drops out of everyone
+// else's device list: it must span several sweeps so one lost ping is not
+// fatal, but not much more, or ghosts linger. 10s/35s means a healthy peer
+// gets three chances to answer and a dead one is gone in under ~45s.
+const SWEEP_INTERVAL = 10 * 1000;
+const STALE_TIMEOUT = 35 * 1000;
 
 // Signaling messages are small; relayed fallback chunks are ~90KB base64.
 // Anything bigger than this is not legitimate traffic.

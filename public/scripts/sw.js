@@ -4,13 +4,13 @@
  * Bump APP_VERSION alongside the ?v= strings in index.html. It keys the cache
  * and builds the precache URLs, so a deploy invalidates both at once.
  */
-const APP_VERSION = "2.4.0";
+const APP_VERSION = "2.4.1";
 const CACHE_NAME = `drpl-cache-${APP_VERSION}`;
 
 // Scripts and styles must be precached under the exact URLs index.html asks
 // for. Caching the bare path instead stores an entry that is never read: a
 // cache lookup matches the query string, so "/scripts/ui.js" would never
-// answer a request for "/scripts/ui.js?v=2.4.0".
+// answer a request for "/scripts/ui.js?v=2.4.1".
 const VERSIONED_ASSETS = [
   "/styles/styles.css",
   "/scripts/network.js",

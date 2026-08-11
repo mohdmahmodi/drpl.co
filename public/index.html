@@ -97,7 +97,7 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="styles/styles.css?v=2.4.0" />
+    <link rel="stylesheet" href="styles/styles.css?v=2.4.1" />
   </head>
   <body>
     <!-- Lucide icons (ISC license, lucide.dev) inlined as a sprite: zero requests, no flash of missing icons -->
@@ -1272,7 +1272,7 @@
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker
-            .register("scripts/sw.js?v=2.4.0")
+            .register("scripts/sw.js?v=2.4.1")
             .then((reg) => {
               reg.update();
               setInterval(() => reg.update(), 3600000);
@@ -1296,10 +1296,10 @@
       }
     </script>
 
-    <script src="scripts/network.js?v=2.4.0"></script>
-    <script src="scripts/theme.js?v=2.4.0"></script>
-    <script src="scripts/background-animation.js?v=2.4.0"></script>
-    <script src="scripts/notifications.js?v=2.4.0"></script>
-    <script src="scripts/ui.js?v=2.4.0"></script>
+    <script src="scripts/network.js?v=2.4.1"></script>
+    <script src="scripts/theme.js?v=2.4.1"></script>
+    <script src="scripts/background-animation.js?v=2.4.1"></script>
+    <script src="scripts/notifications.js?v=2.4.1"></script>
+    <script src="scripts/ui.js?v=2.4.1"></script>
   </body>
 </html>

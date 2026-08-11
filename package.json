@@ -1,6 +1,6 @@
 {
   "name": "drpl-co",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "Transfer files directly between devices on the same network. Peer to peer, nothing uploaded to a server, no account needed.",
   "main": "server.js",
   "scripts": {

@@ -63,7 +63,7 @@ class ServerConnection {
 
     // A watchdog beats the classic zombie-socket problem: after a phone
     // sleeps, readyState can still say OPEN while the connection is long
-    // dead. The server pings every 25s; silence past 65s means dead.
+    // dead. The server pings every 10s; silence past 65s means dead.
     this._watchdog = setInterval(() => this._checkHealth(), 10 * 1000);
 
     Events.on("beforeunload", () => this._disconnect());

@@ -642,11 +642,24 @@ class DrplUI {
     Events.on("server-disconnected", () => this._setOnline(false));
     Events.on("notify-user", (e) => Toast.show(e.detail));
 
-    // Falling back to the relay means the files pass through the signaling
-    // server instead of going device to device. That is a privacy change, so
-    // it is stated plainly rather than left in a stats row.
     Events.on("peer-connection-changed", (e) => {
       const d = e.detail;
+
+      // The row dims the moment the direct connection to that device drops
+      // (lid closed, phone locked, tab gone) and lights back up when it
+      // returns - the server's own sweep removes it for good if the device
+      // never comes back. Honest state, seconds after it changes.
+      const row = $(`peer-${d.peerId}`);
+      if (row) {
+        row.classList.toggle("unreachable", !d.connected);
+        row.title = d.connected
+          ? ""
+          : `Connection to ${this.peerName(d.peerId)} was interrupted. Reconnecting...`;
+      }
+
+      // Falling back to the relay means the files pass through the signaling
+      // server instead of going device to device. That is a privacy change,
+      // so it is stated plainly rather than left in a stats row.
       if (d.transport !== "ws" || !d.connected) return;
       if (this._relayWarned && this._relayWarned.has(d.peerId)) return;
       (this._relayWarned = this._relayWarned || new Set()).add(d.peerId);
